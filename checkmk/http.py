@@ -37,8 +37,8 @@ from .constants import (CHECKMK_ACKNOWLEDGE_HOST_ENDPOINT,
                         CHECKMK_ADD_HOST_COMMENT_ENDPOINT,
                         CHECKMK_ADD_SERVICE_COMMENT_ENDPOINT,
                         CHECKMK_HOSTS_ENDPOINT, CHECKMK_SERVICES_ENDPOINT)
-from .errors import (Forbidden, HTTPError, NotFound, ServiceUnavailable,
-                     TooManyRequests, Unauthorized)
+from .exceptions import (Forbidden, HTTPError, NotFound, ServiceUnavailable,
+                         TooManyRequests, Unauthorized)
 from .models import (APIAuth, ColumnsRequest, HostAcknowledgement, HostComment,
                      ServiceAcknowledgement, ServiceComment)
 

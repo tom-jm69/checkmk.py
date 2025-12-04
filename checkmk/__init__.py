@@ -22,3 +22,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+import logging
+
+__version__ = "0.1.0"
+
+from .client import Client
+
+__all__ = [
+    "Client",
+]
+logging.getLogger(__name__).addHandler(logging.NullHandler())

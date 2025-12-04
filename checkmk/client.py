@@ -25,10 +25,11 @@ SOFTWARE.
 import logging
 from typing import List
 
-from .exceptions import ServiceFetchError, ServiceParseError
+from .exceptions import (HostFetchError, HostParseError, ServiceFetchError,
+                         ServiceParseError)
+from .host import Host
 from .http import CheckmkHTTP
 from .service import Service
-from .host import Host
 from .state import ConnectionState
 
 __all__ = ("Client",)
@@ -40,13 +41,7 @@ _log = logging.getLogger(__name__)
 class Client:
     """
     Async client for the Checkmk REST API.
-
-    Extends `Wrapper` with Checkmk-specific endpoint construction and auth header
-    configuration. Host/service caches are optional and managed by the subclass.
-
-    Inherits session handling, logging, and background task management from `Wrapper`.
     """
-
     def __init__(
         self,
         url: str,
@@ -54,12 +49,12 @@ class Client:
         site_name: str,
         username: str,
         secret: str,
-        api_version: str,
-        timeout=30,
-        retries=5,
-        port=443,
-        scheme="http",
-    ):
+        api_version: str = "1.0",
+        timeout: int = 30,
+        retries: int = 5,
+        port: int = 443,
+        scheme: str = "https",
+    ) -> None:
         """
         Initialize the Checkmk client, compute base endpoints, and set auth headers.
 
@@ -70,12 +65,10 @@ class Client:
             username: Username for authentication.
             secret: Password or API secret.
             api_version: Checkmk REST API version (e.g., `"1.0"`).
-            hosts: Optional initial host cache (default: `None` → `[]`).
-            services: Optional initial service cache (default: `None` → `[]`).
             timeout: Request timeout in seconds (default: `30`).
             retries: Retry count for polling attempts (default: `5`).
             port: Server port (default: `443`).
-            scheme: Connection scheme, `"http"` or `"https"` (default: `"http"`).
+            scheme: Connection scheme, `"http"` or `"https"` (default: `"https"`).
 
         """
         self.url = url
@@ -93,7 +86,13 @@ class Client:
         )
         self._state = ConnectionState(self.http)
 
-    def set_api_key(self, *, api_key: str):
+    def set_api_key(self, *, api_key: str) -> None:
+        """
+        Set the API key for authentication.
+
+        Args:
+            api_key: The API key to use for authentication.
+        """
         self.http.set_api_key(api_key)
 
     async def close(self) -> None:
@@ -107,34 +106,91 @@ class Client:
         Fetch and deserialize all services from the Checkmk API.
 
         Returns:
-            List[Service] | None: List of services, or None on failure.
+            List[Service]: List of services.
 
         Raises:
-            ServiceFetchingError: On failed service request.
-            ServiceParsingError: On invalid response structure.
+            ServiceFetchError: On failed service request.
+            ServiceParseError: On invalid response structure.
         """
         try:
             services = await self.http.get_services()
-        except Exception:
-            raise ServiceFetchError()
+        except Exception as e:
+            raise ServiceFetchError(
+                message=f"API request failed: {e}",
+            ) from e
 
         try:
             if not services or "value" not in services:
-                raise
-            return [Service(**service) for service in services["value"]]
-        except Exception:
-            raise ServiceParseError()
+                raise ServiceParseError(
+                    message="Invalid response structure: missing 'value' field",
+                    raw_data=services
+                )
 
-    async def get_hosts(self) -> list[Host]:
+            parsed_services = []
+            for service_data in services["value"]:
+                try:
+                    service = Service(**service_data, _state=self._state)
+                    parsed_services.append(service)
+                except Exception as e:
+                    service_id = service_data.get("id", "unknown")
+                    raise ServiceParseError(
+                        message=f"Parsing failed: {e}",
+                        raw_data=service_data,
+                        service_description=service_id
+                    ) from e
+
+            return parsed_services
+        except ServiceParseError:
+            raise
+        except Exception as e:
+            raise ServiceParseError(
+                message=f"Unexpected parsing error: {e}",
+                raw_data=services
+            ) from e
+
+    async def get_hosts(self) -> List[Host]:
         """
         Fetch and deserialize all hosts from the Checkmk API.
 
         Returns:
-            list[Host]: List of hosts, or an empty list on failure.
+            List[Host]: List of hosts.
+
+        Raises:
+            HostFetchError: On failed host request.
+            HostParseError: On invalid response structure.
         """
-        hosts = await self.http.get_hosts()
+        try:
+            hosts = await self.http.get_hosts()
+        except Exception as e:
+            raise HostFetchError(
+                message=f"API request failed: {e}",
+            ) from e
 
-        if not hosts or "value" not in hosts:
-            return []
+        try:
+            if not hosts or "value" not in hosts:
+                raise HostParseError(
+                    message="Invalid response structure: missing 'value' field",
+                    raw_data=hosts
+                )
 
-        return [Host(**host) for host in hosts["value"]]
+            parsed_hosts = []
+            for host_data in hosts["value"]:
+                try:
+                    host = Host(**host_data, _state=self._state)
+                    parsed_hosts.append(host)
+                except Exception as e:
+                    host_name = host_data.get("id", "unknown")
+                    raise HostParseError(
+                        message=f"Parsing failed: {e}",
+                        raw_data=host_data,
+                        host_name=host_name
+                    ) from e
+
+            return parsed_hosts
+        except HostParseError:
+            raise
+        except Exception as e:
+            raise HostParseError(
+                message=f"Unexpected parsing error: {e}",
+                raw_data=hosts
+            ) from e

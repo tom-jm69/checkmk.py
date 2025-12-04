@@ -25,17 +25,10 @@ SOFTWARE.
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
+from .models import HostAcknowledgement
 from .state import ConnectionState
-
-
-class HostAcknowledgement(BaseModel):
-    comment: str
-    host_name: str
-    sticky: Optional[bool] = True
-    persistent: Optional[bool] = False
-    notify: Optional[bool] = True
 
 
 class HostExtensions(BaseModel):
@@ -51,25 +44,20 @@ class HostExtensions(BaseModel):
 class Host(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    domainType: str
+    domain_type: str = Field(alias="domainType")
     id: str
     title: str
     members: Optional[Dict[str, Any]] = None
     updated_at: Optional[datetime] = Field(default_factory=datetime.now)
     extensions: HostExtensions
 
-    _state: ConnectionState = Field(exclude=True, repr=False)
+    _state: ConnectionState = PrivateAttr()
 
     async def acknowledge(
-        self,
-        comment: str,
-        *,
-        sticky: bool = True,
-        persistent: bool = False,
-        notify: bool = True
-    ) -> bool:
+        self, comment: str, *, sticky: bool = True, persistent: bool = False, notify: bool = True
+    ) -> None:
         """
-        Acknowledge this service.
+        Acknowledge this host.
 
         Args:
             comment: The acknowledgement comment
@@ -89,5 +77,10 @@ class Host(BaseModel):
         await self._state.http.add_host_acknowledgement(data)
 
     async def remove_acknowledgement(self) -> None:
-        """Remove the acknowledgement from this host"""
-        raise NotImplementedError()
+        """
+        Remove the acknowledgement from this host.
+
+        Raises:
+            NotImplementedError: This method is not yet implemented.
+        """
+        raise NotImplementedError("Host acknowledgement removal is not yet implemented")

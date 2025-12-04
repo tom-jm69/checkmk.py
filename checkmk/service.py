@@ -25,8 +25,9 @@ SOFTWARE.
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, PrivateAttr, field_validator
 
+from .models import ServiceAcknowledgement
 from .state import ConnectionState
 
 
@@ -158,16 +159,8 @@ class ServiceExtensions(BaseModel):
      
     # we need to add validators
 
-class ServiceAcknowledgement(BaseModel):
-    comment: str
-    service_description: Optional[str] = None
-    host_name: Optional[str] = None
-    sticky: Optional[bool] = True
-    persistent: Optional[bool] = False
-    notify: Optional[bool] = True
-
 class Link(BaseModel):
-    domainType: Optional[str] = None
+    domain_type: Optional[str] = Field(default=None, alias="domainType")
     href: HttpUrl
     method: str
     rel: str
@@ -177,7 +170,7 @@ class Link(BaseModel):
 class Service(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    domainType: str
+    domain_type: str = Field(alias="domainType")
     id: str
     links: List[Link]
     members: Dict
@@ -187,7 +180,7 @@ class Service(BaseModel):
     )
     extensions: ServiceExtensions
 
-    _state: ConnectionState = Field(exclude=True, repr=False)
+    _state: ConnectionState = PrivateAttr()
 
     async def acknowledge(
         self,
@@ -196,7 +189,7 @@ class Service(BaseModel):
         sticky: bool = True,
         persistent: bool = False,
         notify: bool = True
-    ) -> bool:
+    ) -> None:
         """
         Acknowledge this service.
 
@@ -215,8 +208,13 @@ class Service(BaseModel):
 
 
     async def remove_acknowledgement(self) -> None:
-        """Remove the acknowledgement from this service"""
-        raise NotImplementedError()
+        """
+        Remove the acknowledgement from this service.
+
+        Raises:
+            NotImplementedError: This method is not yet implemented.
+        """
+        raise NotImplementedError("Service acknowledgement removal is not yet implemented")
 
     async def add_downtime(
         self,
@@ -226,5 +224,16 @@ class Service(BaseModel):
         *,
         recurring: bool = False
     ) -> None:
-        """Schedule downtime for this service"""
-        raise NotImplementedError()
+        """
+        Schedule downtime for this service.
+
+        Args:
+            start_time: When the downtime should start
+            end_time: When the downtime should end
+            comment: Comment explaining the reason for downtime
+            recurring: Whether the downtime should recur
+
+        Raises:
+            NotImplementedError: This method is not yet implemented.
+        """
+        raise NotImplementedError("Service downtime scheduling is not yet implemented")
