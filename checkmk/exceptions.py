@@ -25,12 +25,13 @@ SOFTWARE.
 from typing import Any, Optional
 
 import aiohttp
+from aiohttp import ClientResponse
 
 
 class CheckmkException(Exception):
     """Base exception class for all checkmk library errors"""
 
-    def __init__(self, message: str, **kwargs: Any) -> None:
+    def __init__(self, message: str | ClientResponse, **kwargs: Any) -> None:
         super().__init__(message)
         self.message = message
         self.details = kwargs
@@ -47,7 +48,7 @@ class HTTPError(CheckmkException):
 
     def __init__(
         self,
-        message: str,
+        message: str | ClientResponse,
         status_code: Optional[int] = None,
         response_data: Optional[Any] = None,
         url: Optional[str] = None,
@@ -58,7 +59,7 @@ class HTTPError(CheckmkException):
         self.url = url
 
     def __str__(self) -> str:
-        parts = [self.message]
+        parts = [self.message if isinstance(self.message, str) else str(self.message)]
         if self.status_code:
             parts.append(f"Status: {self.status_code}")
         if self.url:

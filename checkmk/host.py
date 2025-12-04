@@ -25,7 +25,7 @@ SOFTWARE.
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field
 
 from .models import HostAcknowledgement
 from .state import ConnectionState
@@ -50,8 +50,7 @@ class Host(BaseModel):
     members: Optional[Dict[str, Any]] = None
     updated_at: Optional[datetime] = Field(default_factory=datetime.now)
     extensions: HostExtensions
-
-    _state: ConnectionState = PrivateAttr()
+    state: ConnectionState = Field(exclude=True, repr=False)
 
     async def acknowledge(
         self, comment: str, *, sticky: bool = True, persistent: bool = False, notify: bool = True
@@ -74,7 +73,7 @@ class Host(BaseModel):
             notify=notify,
         )
 
-        await self._state.http.add_host_acknowledgement(data)
+        await self.state.http.add_host_acknowledgement(data)
 
     async def remove_acknowledgement(self) -> None:
         """

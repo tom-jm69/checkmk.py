@@ -124,22 +124,17 @@ class HTTPClient:
         }
 
         if self.auth is not None:
-            if isinstance(self.auth, aiohttp.BasicAuth):
-                kwargs["auth"] = self.auth
-            elif str(self.auth) == "sdp":
-                headers["authtoken"] = self.auth.secret
-            else:
-                headers["Authorization"] = self.auth.to_header()
+            headers["Authorization"] = self.auth.to_header()
 
         kwargs["headers"] = {**headers, **kwargs.get("headers", {})}
 
         if params:
             kwargs["params"] = params
 
-        if json_body is not None:
+        if json_body:
             kwargs["json"] = json_body
 
-        if data is not None:
+        if data:
             kwargs["data"] = data
 
         # Retry loop with exponential backoff
@@ -191,7 +186,6 @@ class HTTPClient:
                             raise Forbidden(response, response_data)
                         if response.status == 404:
                             raise NotFound(response, response_data)
-
                         raise HTTPError(response, response_data)
 
                 except aiohttp.ClientError as e:
@@ -226,6 +220,7 @@ class CheckmkHTTP:
         self.retries = retries
         self.username = username
         self.secret = secret
+        self.set_auth()
 
     async def close(self) -> None:
         await self.client.close()

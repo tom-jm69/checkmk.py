@@ -69,7 +69,7 @@ class HostAcknowledgement(BaseModel):
     persistent: bool = False
     notify: bool = True
     comment: str
-    author: Optional[str] = None
+    acknowledge_type: str = "host"
 
 
 class ServiceAcknowledgement(BaseModel):
@@ -80,4 +80,4 @@ class ServiceAcknowledgement(BaseModel):
     persistent: bool = False
     notify: bool = True
     comment: str
-    author: Optional[str] = None
+    acknowledge_type: str = "service"

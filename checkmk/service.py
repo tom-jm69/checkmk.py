@@ -25,15 +25,16 @@ SOFTWARE.
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, PrivateAttr, field_validator
+from pydantic import (BaseModel, ConfigDict, Field, HttpUrl,
+                      field_validator)
 
 from .models import ServiceAcknowledgement
 from .state import ConnectionState
 
 
 class ServiceExtensions(BaseModel):
-    description: Optional[str] = None
-    host_name: Optional[str] = None
+    description: str
+    host_name: str
     state: int
     acknowledged: Optional[int] = None
     acknowledgement_type: Optional[int] = None
@@ -179,8 +180,7 @@ class Service(BaseModel):
         default_factory=datetime.now
     )
     extensions: ServiceExtensions
-
-    _state: ConnectionState = PrivateAttr()
+    state: ConnectionState = Field(exclude=True, repr=False)
 
     async def acknowledge(
         self,
@@ -200,11 +200,11 @@ class Service(BaseModel):
             notify: Whether to send notifications
         """
 
-        data = ServiceAcknowledgement(
+        data = ServiceAcknowledgement(host_name=self.extensions.host_name,service_description=self.extensions.description,
             comment=comment, sticky=sticky, persistent=persistent, notify=notify
         )
 
-        await self._state.http.add_service_acknowledgement(data)
+        await self.state.http.add_service_acknowledgement(data)
 
 
     async def remove_acknowledgement(self) -> None:
