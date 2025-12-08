@@ -27,8 +27,40 @@ import logging
 __version__ = "0.1.0"
 
 from .client import Client
+from .exceptions import (
+    CheckmkException,
+    FetchError,
+    Forbidden,
+    HostException,
+    HostFetchError,
+    HostParseError,
+    HTTPError,
+    NotFound,
+    ParseError,
+    ServiceException,
+    ServiceFetchError,
+    ServiceParseError,
+    ServiceUnavailable,
+    TooManyRequests,
+    Unauthorized,
+)
 
 __all__ = [
     "Client",
+    "CheckmkException",
+    "FetchError",
+    "Forbidden",
+    "HostException",
+    "HostFetchError",
+    "HostParseError",
+    "HTTPError",
+    "NotFound",
+    "ParseError",
+    "ServiceException",
+    "ServiceFetchError",
+    "ServiceParseError",
+    "ServiceUnavailable",
+    "TooManyRequests",
+    "Unauthorized",
 ]
 logging.getLogger(__name__).addHandler(logging.NullHandler())

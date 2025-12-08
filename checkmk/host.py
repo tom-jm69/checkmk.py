@@ -23,26 +23,29 @@ SOFTWARE.
 """
 
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .models import HostAcknowledgement
+from .exceptions import HostNoProblemError, HostProblemAlreadyAcknowledgedError
+from .models import HostAcknowledgement, Link
 from .state import ConnectionState
 
 
 class HostExtensions(BaseModel):
-    host_name: str
+    model_config = ConfigDict(extra="allow")
+
+    name: str
     state: int
     last_check: Optional[int] = None
     acknowledged: Optional[int] = None
     acknowledgement_type: Optional[int] = None
-
+    custom_variables: Optional[dict] = None
     updated_at: Optional[datetime] = Field(default_factory=datetime.now)
 
 
 class Host(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
     domain_type: str = Field(alias="domainType")
     id: str
@@ -50,6 +53,8 @@ class Host(BaseModel):
     members: Optional[Dict[str, Any]] = None
     updated_at: Optional[datetime] = Field(default_factory=datetime.now)
     extensions: HostExtensions
+    links: List[Link]
+
     state: ConnectionState = Field(exclude=True, repr=False)
 
     async def acknowledge(
@@ -65,15 +70,23 @@ class Host(BaseModel):
             notify: Whether to send notifications
         """
 
+        if self.extensions.acknowledged:
+            # problem already acknowledged
+            raise HostProblemAlreadyAcknowledgedError(host_name=self.extensions.name)
+
+        if not self.extensions.state:
+            # we have no problem on this service if state is True
+            raise HostNoProblemError(host_name=self.extensions.name)
+
         data = HostAcknowledgement(
-            host_name=self.extensions.host_name,
+            host_name=self.extensions.name,
             comment=comment,
             sticky=sticky,
             persistent=persistent,
             notify=notify,
         )
 
-        await self.state.http.add_host_acknowledgement(data)
+        return await self.state.http.add_host_acknowledgement(data)
 
     async def remove_acknowledgement(self) -> None:
         """

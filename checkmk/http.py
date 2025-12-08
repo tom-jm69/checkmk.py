@@ -26,23 +26,42 @@ import asyncio
 import json
 import logging
 import sys
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, Optional
 
 import aiohttp
 from pydantic import BaseModel
 
 from . import __version__
-from .constants import (CHECKMK_ACKNOWLEDGE_HOST_ENDPOINT,
-                        CHECKMK_ACKNOWLEDGE_SERVICE_ENDPOINT,
-                        CHECKMK_ADD_HOST_COMMENT_ENDPOINT,
-                        CHECKMK_ADD_SERVICE_COMMENT_ENDPOINT,
-                        CHECKMK_HOSTS_ENDPOINT, CHECKMK_SERVICES_ENDPOINT)
-from .exceptions import (Forbidden, HTTPError, NotFound, ServiceUnavailable,
-                         TooManyRequests, Unauthorized)
-from .models import (APIAuth, ColumnsRequest, HostAcknowledgement, HostComment,
-                     ServiceAcknowledgement, ServiceComment)
+from .constants import (
+    CHECKMK_ACKNOWLEDGE_HOST_ENDPOINT,
+    CHECKMK_ACKNOWLEDGE_SERVICE_ENDPOINT,
+    CHECKMK_ADD_HOST_COMMENT_ENDPOINT,
+    CHECKMK_ADD_SERVICE_COMMENT_ENDPOINT,
+    CHECKMK_HOSTS_ENDPOINT,
+    CHECKMK_SERVICES_ENDPOINT,
+)
+from .exceptions import (
+    Forbidden,
+    HostFetchError,
+    HostParseError,
+    NotFound,
+    ServiceFetchError,
+    ServiceParseError,
+    ServiceUnavailable,
+    TooManyRequests,
+    Unauthorized,
+)
+from .models import (
+    APIAuth,
+    ColumnsRequest,
+    HostAcknowledgement,
+    HostComment,
+    ServiceAcknowledgement,
+    ServiceComment,
+)
 
 _log = logging.getLogger(__name__)
+
 
 class Route(BaseModel):
     base_url: str
@@ -72,8 +91,6 @@ class HTTPClient:
         timeout: int = 30,
         retries: int = 5,
     ) -> None:
-        # Checks if the faceit.Client was initialized before or after the event loop started
-        # If it was not initialized, you have to call start_session()
         self.timeout = timeout
         self.retries = retries
         self.verify_ssl = verify_ssl
@@ -141,24 +158,19 @@ class HTTPClient:
         async with self.ratelimit_lock:
             for attempt in range(max_retries):
                 try:
-                    async with self.__session.request(
-                        method, url, **kwargs
-                    ) as response:
+                    async with self.__session.request(method, url, **kwargs) as response:
                         _log.debug(
                             f"{method} {url} with {params} returned status {response.status}"
                         )
 
-                        response_data = await json_or_text(response)
-
+                        data = await response.json()
                         if 200 <= response.status < 300:
-                            _log.debug(f"{method} {url} received: {response_data}")
-                            return response_data
+                            _log.debug(f"{method} {url} received: {data}")
+                            return data
 
                         if response.status == 429:
                             if attempt < max_retries - 1:
-                                retry_after = int(
-                                    response.headers.get("Retry-After", "60")
-                                )
+                                retry_after = int(response.headers.get("Retry-After", "60"))
                                 _log.warning(
                                     f"{method} {url} rate-limited. "
                                     f"Retrying after {retry_after}s (attempt {attempt + 1}/{max_retries})"
@@ -166,9 +178,22 @@ class HTTPClient:
                                 await asyncio.sleep(retry_after)
                                 continue
                             else:
-                                raise TooManyRequests(response, response_data)
+                                raise TooManyRequests(response, data)
 
-                        if response.status in {500, 502, 503, 504}:
+                        if response.status == 401:
+                            # Unauthorized
+                            raise Unauthorized(response, data)
+
+                        if response.status == 403:
+                            # Forbidden
+                            raise Forbidden(response, data)
+
+                        if response.status == 404:
+                            # NotFound
+                            raise NotFound(response, data)
+
+                        if response.status in {500, 502, 504, 503, 524}:
+                            # ServerError
                             if attempt < max_retries - 1:
                                 backoff = 2**attempt  # 1s, 2s, 4s
                                 _log.warning(
@@ -178,15 +203,7 @@ class HTTPClient:
                                 await asyncio.sleep(backoff)
                                 continue
                             else:
-                                raise ServiceUnavailable(response, response_data)
-
-                        if response.status == 401:
-                            raise Unauthorized(response, response_data)
-                        if response.status == 403:
-                            raise Forbidden(response, response_data)
-                        if response.status == 404:
-                            raise NotFound(response, response_data)
-                        raise HTTPError(response, response_data)
+                                raise ServiceUnavailable(response, data)
 
                 except aiohttp.ClientError as e:
                     if attempt < max_retries - 1:
@@ -199,8 +216,7 @@ class HTTPClient:
                         continue
                     raise
 
-            raise HTTPError(None, "Max retries exceeded")
-
+            raise RuntimeError("Unreachable code in HTTP handling")
 
 
 class CheckmkHTTP:
@@ -225,7 +241,7 @@ class CheckmkHTTP:
     async def close(self) -> None:
         await self.client.close()
 
-    async def get_services(self, **parameters: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def get_services(self, **parameters: Dict[str, Any]) -> Dict[str, Any]:
         columns_request_data = [
             "host_name",
             "description",
@@ -255,41 +271,67 @@ class CheckmkHTTP:
             "plugin_output",
             "long_plugin_output",
             "comments_with_extra_info",
+            "custom_variables",
         ]
 
         data = ColumnsRequest(columns=columns_request_data).model_dump_json()
-        response = await self.client.request(
-            Route(
-                base_url=self.url,
-                method="POST",
-                path=CHECKMK_SERVICES_ENDPOINT,
-            ),
-            data=data,
-        )
+
+        try:
+            response = await self.client.request(
+                Route(
+                    base_url=self.url,
+                    method="POST",
+                    path=CHECKMK_SERVICES_ENDPOINT,
+                ),
+                data=data,
+            )
+        except Exception as e:
+            raise ServiceFetchError(
+                message=f"API request failed: {e}",
+            ) from e
+
+        if not response or "value" not in response:
+            raise ServiceParseError(
+                message="Invalid response structure: missing 'value' field", raw_data=response
+            )
+
         return response
 
     def set_auth(self) -> None:
         self.client.auth = APIAuth(username=self.username, secret=self.secret)
 
-    async def get_hosts(self, **parameters: Dict[str, Any]) -> List[Dict[str, Any]]:
+    async def get_hosts(self) -> Dict[str, Any]:
         columns_request_data = [
             "name",
             "state",
             "last_check",
             "acknowledged",
             "acknowledgement_type",
+            "custom_variables",
         ]
 
         data = ColumnsRequest(columns=columns_request_data).model_dump_json()
 
-        return await self.client.request(
-            Route(
-                base_url=self.url,
-                method="POST",
-                path=CHECKMK_HOSTS_ENDPOINT,
-            ),
-            data=data,
-        )
+        try:
+            response = await self.client.request(
+                Route(
+                    base_url=self.url,
+                    method="POST",
+                    path=CHECKMK_HOSTS_ENDPOINT,
+                ),
+                data=data,
+            )
+        except Exception as e:
+            raise HostFetchError(
+                message=f"API request failed: {e}",
+            ) from e
+
+        if not response or "value" not in response:
+            raise HostParseError(
+                message="Invalid response structure: missing 'value' field", raw_data=response
+            )
+
+        return response
 
     async def add_service_comment(self, comment: ServiceComment) -> Dict[str, Any]:
         data = comment.model_dump_json()
@@ -315,12 +357,10 @@ class CheckmkHTTP:
             data=data,
         )
 
-    async def add_host_acknowledgement(
-        self, acknowledgement: HostAcknowledgement
-    ) -> Dict[str, Any]:
+    async def add_host_acknowledgement(self, acknowledgement: HostAcknowledgement) -> bool:
         data = acknowledgement.model_dump_json()
 
-        return await self.client.request(
+        await self.client.request(
             Route(
                 base_url=self.url,
                 method="POST",
@@ -328,13 +368,12 @@ class CheckmkHTTP:
             ),
             data=data,
         )
+        return True
 
-    async def add_service_acknowledgement(
-        self, acknowledgement: ServiceAcknowledgement
-    ) -> Dict[str, Any]:
+    async def add_service_acknowledgement(self, acknowledgement: ServiceAcknowledgement) -> bool:
         data = acknowledgement.model_dump_json()
 
-        return await self.client.request(
+        await self.client.request(
             Route(
                 base_url=self.url,
                 method="POST",
@@ -342,4 +381,4 @@ class CheckmkHTTP:
             ),
             data=data,
         )
-
+        return True

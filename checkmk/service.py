@@ -25,10 +25,10 @@ SOFTWARE.
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from pydantic import (BaseModel, ConfigDict, Field, HttpUrl,
-                      field_validator)
+from pydantic import BaseModel, ConfigDict, Field
 
-from .models import ServiceAcknowledgement
+from .exceptions import ServiceNoProblemError, ServiceProblemAlreadyAcknowledgedError
+from .models import Link, ServiceAcknowledgement
 from .state import ConnectionState
 
 
@@ -91,10 +91,10 @@ class ServiceExtensions(BaseModel):
     last_hard_state_change: Optional[int] = None
     last_notification: Optional[int] = None
     last_state: Optional[int] = None
-    last_state_change: Optional[int] = None
-    last_time_down: Optional[int] = None
-    last_time_unreachable: Optional[int] = None
-    last_time_up: Optional[int] = None
+    last_state_change: Optional[datetime] = None
+    last_time_down: Optional[datetime] = None
+    last_time_unreachable: Optional[datetime] = None
+    last_time_up: Optional[datetime] = None
     latency: Optional[float] = None
     long_plugin_output: Optional[str] = None
     low_flap_threshold: Optional[float] = None
@@ -106,7 +106,7 @@ class ServiceExtensions(BaseModel):
     mk_logwatch_files: Optional[List[str]] = None
     modified_attributes: Optional[int] = None
     modified_attributes_list: Optional[List[str]] = None
-    next_check: Optional[int] = None
+    next_check: Optional[datetime] = None
     next_notification: Optional[int] = None
     no_more_notifications: Optional[int] = None
     notes: Optional[str] = None
@@ -117,18 +117,6 @@ class ServiceExtensions(BaseModel):
     notification_period: Optional[str] = None
     notification_postponement_reason: Optional[str] = None
     notifications_enabled: Optional[int] = None
-    num_services: Optional[int] = None
-    num_services_crit: Optional[int] = None
-    num_services_handled_problems: Optional[int] = None
-    num_services_hard_crit: Optional[int] = None
-    num_services_hard_ok: Optional[int] = None
-    num_services_hard_unknown: Optional[int] = None
-    num_services_hard_warn: Optional[int] = None
-    num_services_ok: Optional[int] = None
-    num_services_pending: Optional[int] = None
-    num_services_unhandled_problems: Optional[int] = None
-    num_services_unknown: Optional[int] = None
-    num_services_warn: Optional[int] = None
     obsess_over_host: Optional[int] = None
     parents: Optional[List[str]] = None
     pending_flex_downtime: Optional[int] = None
@@ -157,16 +145,9 @@ class ServiceExtensions(BaseModel):
     total_services: Optional[int] = None
     worst_service_hard_state: Optional[int] = None
     worst_service_state: Optional[int] = None
-     
+
     # we need to add validators
 
-class Link(BaseModel):
-    domain_type: Optional[str] = Field(default=None, alias="domainType")
-    href: HttpUrl
-    method: str
-    rel: str
-    title: str
-    type: str
 
 class Service(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -176,20 +157,13 @@ class Service(BaseModel):
     links: List[Link]
     members: Dict
     title: str
-    updated_at: Optional[datetime] = Field(
-        default_factory=datetime.now
-    )
+    updated_at: Optional[datetime] = Field(default_factory=datetime.now)
     extensions: ServiceExtensions
     state: ConnectionState = Field(exclude=True, repr=False)
 
     async def acknowledge(
-        self,
-        comment: str,
-        *,
-        sticky: bool = True,
-        persistent: bool = False,
-        notify: bool = True
-    ) -> None:
+        self, comment: str, *, sticky: bool = True, persistent: bool = False, notify: bool = True
+    ) -> bool:
         """
         Acknowledge this service.
 
@@ -199,13 +173,27 @@ class Service(BaseModel):
             persistent: Whether the acknowledgement persists across restarts
             notify: Whether to send notifications
         """
+        if self.extensions.acknowledged:
+            # problem already acknowledged
+            raise ServiceProblemAlreadyAcknowledgedError(
+                service_description=self.extensions.description
+            )
 
-        data = ServiceAcknowledgement(host_name=self.extensions.host_name,service_description=self.extensions.description,
-            comment=comment, sticky=sticky, persistent=persistent, notify=notify
+        if not self.extensions.state:
+            # we have no problem on this service if state is True
+            raise ServiceNoProblemError(service_description=self.extensions.description)
+
+
+        data = ServiceAcknowledgement(
+            host_name=self.extensions.host_name,
+            service_description=self.extensions.description,
+            comment=comment,
+            sticky=sticky,
+            persistent=persistent,
+            notify=notify,
         )
 
-        await self.state.http.add_service_acknowledgement(data)
-
+        return await self.state.http.add_service_acknowledgement(data)
 
     async def remove_acknowledgement(self) -> None:
         """
@@ -217,12 +205,7 @@ class Service(BaseModel):
         raise NotImplementedError("Service acknowledgement removal is not yet implemented")
 
     async def add_downtime(
-        self,
-        start_time: datetime,
-        end_time: datetime,
-        comment: str,
-        *,
-        recurring: bool = False
+        self, start_time: datetime, end_time: datetime, comment: str, *, recurring: bool = False
     ) -> None:
         """
         Schedule downtime for this service.

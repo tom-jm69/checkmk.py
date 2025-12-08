@@ -97,7 +97,25 @@ class FetchError(CheckmkException):
         self.resource_type = resource_type
 
 
-class ServiceParseError(ParseError):
+class ProblemAcknowledgementError(CheckmkException):
+    """Base exception for all acknowledgement-related errors"""
+
+    pass
+
+
+class HostException(CheckmkException):
+    """Base exception for all host-related errors"""
+
+    pass
+
+
+class ServiceException(CheckmkException):
+    """Base exception for all service-related errors"""
+
+    pass
+
+
+class ServiceParseError(ServiceException, ParseError):
     """Raised when a raw checkmk service object can't be properly parsed"""
 
     def __init__(
@@ -113,7 +131,7 @@ class ServiceParseError(ParseError):
             self.details["service_description"] = service_description
 
 
-class ServiceFetchError(FetchError):
+class ServiceFetchError(ServiceException, FetchError):
     """Raised when a checkmk service could not be fetched"""
 
     def __init__(
@@ -128,7 +146,59 @@ class ServiceFetchError(FetchError):
             self.details["service_description"] = service_description
 
 
-class HostFetchError(FetchError):
+class ServiceNoProblemError(ServiceException, ProblemAcknowledgementError):
+    def __init__(
+        self,
+        message: str = "Service Problem Acknowledgement failed",
+        resource_id: Optional[str] = None,
+        service_description: Optional[str] = None,
+    ) -> None:
+        super().__init__(message, resource_id=resource_id, resource_type="service")
+        self.service_description = service_description
+        if service_description:
+            self.details["service_description"] = service_description
+
+
+class ServiceProblemAlreadyAcknowledgedError(ServiceException, ProblemAcknowledgementError):
+    def __init__(
+        self,
+        message: str = "Service Problem already acknowledged",
+        resource_id: Optional[str] = None,
+        service_description: Optional[str] = None,
+    ) -> None:
+        super().__init__(message, resource_id=resource_id, resource_type="service")
+        self.service_description = service_description
+        if service_description:
+            self.details["service_description"] = service_description
+
+
+class HostNoProblemError(HostException, ProblemAcknowledgementError):
+    def __init__(
+        self,
+        message: str = "Host Problem Acknowledgement failed",
+        resource_id: Optional[str] = None,
+        host_name: Optional[str] = None,
+    ) -> None:
+        super().__init__(message, resource_id=resource_id, resource_type="host")
+        self.host_name = host_name
+        if host_name:
+            self.details["host_name"] = host_name
+
+
+class HostProblemAlreadyAcknowledgedError(HostException, ProblemAcknowledgementError):
+    def __init__(
+        self,
+        message: str = "Host Problem already acknowledged",
+        resource_id: Optional[str] = None,
+        host_name: Optional[str] = None,
+    ) -> None:
+        super().__init__(message, resource_id=resource_id, resource_type="host")
+        self.host_name = host_name
+        if host_name:
+            self.details["host_name"] = host_name
+
+
+class HostFetchError(HostException, FetchError):
     """Raised when a checkmk host could not be fetched"""
 
     def __init__(
@@ -143,7 +213,7 @@ class HostFetchError(FetchError):
             self.details["host_name"] = host_name
 
 
-class HostParseError(ParseError):
+class HostParseError(HostException, ParseError):
     """Raised when a checkmk host object could not be parsed"""
 
     def __init__(

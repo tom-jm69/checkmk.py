@@ -25,8 +25,7 @@ SOFTWARE.
 import logging
 from typing import List
 
-from .exceptions import (HostFetchError, HostParseError, ServiceFetchError,
-                         ServiceParseError)
+from .exceptions import HostParseError, ServiceParseError
 from .host import Host
 from .http import CheckmkHTTP
 from .service import Service
@@ -42,6 +41,7 @@ class Client:
     """
     Async client for the Checkmk REST API.
     """
+
     def __init__(
         self,
         url: str,
@@ -86,6 +86,15 @@ class Client:
         )
         self._state = ConnectionState(self.http)
 
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            _log.error(f"Exception occurred: {exc_val}")
+        await self.close()
+        return False
+
     def _set_api_key(self, *, api_key: str) -> None:
         """
         Set the API key for authentication.
@@ -112,41 +121,22 @@ class Client:
             ServiceFetchError: On failed service request.
             ServiceParseError: On invalid response structure.
         """
-        try:
-            services = await self.http.get_services()
-        except Exception as e:
-            raise ServiceFetchError(
-                message=f"API request failed: {e}",
-            ) from e
+        services = await self.http.get_services()
 
-        try:
-            if not services or "value" not in services:
+        parsed_services = []
+        for service_data in services["value"]:
+            try:
+                service = Service(**service_data, state=self._state)
+                parsed_services.append(service)
+            except Exception as e:
+                service_id = service_data.get("id", "unknown")
                 raise ServiceParseError(
-                    message="Invalid response structure: missing 'value' field",
-                    raw_data=services
-                )
+                    message=f"Parsing failed: {e}",
+                    raw_data=service_data,
+                    service_description=service_id,
+                ) from e
 
-            parsed_services = []
-            for service_data in services["value"]:
-                try:
-                    service = Service(**service_data, state=self._state)
-                    parsed_services.append(service)
-                except Exception as e:
-                    service_id = service_data.get("id", "unknown")
-                    raise ServiceParseError(
-                        message=f"Parsing failed: {e}",
-                        raw_data=service_data,
-                        service_description=service_id
-                    ) from e
-
-            return parsed_services
-        except ServiceParseError:
-            raise
-        except Exception as e:
-            raise ServiceParseError(
-                message=f"Unexpected parsing error: {e}",
-                raw_data=services
-            ) from e
+        return parsed_services
 
     async def get_hosts(self) -> List[Host]:
         """
@@ -159,38 +149,17 @@ class Client:
             HostFetchError: On failed host request.
             HostParseError: On invalid response structure.
         """
-        try:
-            hosts = await self.http.get_hosts()
-        except Exception as e:
-            raise HostFetchError(
-                message=f"API request failed: {e}",
-            ) from e
+        hosts = await self.http.get_hosts()
 
-        try:
-            if not hosts or "value" not in hosts:
+        parsed_hosts = []
+        for host_data in hosts["value"]:
+            try:
+                host = Host(**host_data, state=self._state)
+                parsed_hosts.append(host)
+            except Exception as e:
+                host_name = host_data.get("id", "unknown")
                 raise HostParseError(
-                    message="Invalid response structure: missing 'value' field",
-                    raw_data=hosts
-                )
+                    message=f"Parsing failed: {e}", raw_data=host_data, host_name=host_name
+                ) from e
 
-            parsed_hosts = []
-            for host_data in hosts["value"]:
-                try:
-                    host = Host(**host_data, state=self._state)
-                    parsed_hosts.append(host)
-                except Exception as e:
-                    host_name = host_data.get("id", "unknown")
-                    raise HostParseError(
-                        message=f"Parsing failed: {e}",
-                        raw_data=host_data,
-                        host_name=host_name
-                    ) from e
-
-            return parsed_hosts
-        except HostParseError:
-            raise
-        except Exception as e:
-            raise HostParseError(
-                message=f"Unexpected parsing error: {e}",
-                raw_data=hosts
-            ) from e
+        return parsed_hosts

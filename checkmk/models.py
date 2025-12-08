@@ -24,29 +24,42 @@ SOFTWARE.
 
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, HttpUrl
 
 
 class APIAuth(BaseModel):
     """API authentication model"""
+
     username: str
     secret: str
 
     def to_header(self) -> str:
         """Convert to authorization header value"""
         import base64
+
         credentials = f"{self.username}:{self.secret}"
         encoded = base64.b64encode(credentials.encode()).decode()
         return f"Basic {encoded}"
 
 
+class Link(BaseModel):
+    domain_type: Optional[str] = Field(default=None, alias="domainType")
+    href: HttpUrl
+    method: str
+    rel: str
+    title: Optional[str] = None
+    type: str
+
+
 class ColumnsRequest(BaseModel):
     """Request model for columns query"""
+
     columns: List[str]
 
 
 class HostComment(BaseModel):
     """Model for adding a host comment"""
+
     host_name: str
     comment: str
     persistent: bool = True
@@ -55,6 +68,7 @@ class HostComment(BaseModel):
 
 class ServiceComment(BaseModel):
     """Model for adding a service comment"""
+
     host_name: str
     service_description: str
     comment: str
@@ -64,6 +78,7 @@ class ServiceComment(BaseModel):
 
 class HostAcknowledgement(BaseModel):
     """Model for acknowledging a host problem"""
+
     host_name: str
     sticky: bool = True
     persistent: bool = False
@@ -74,6 +89,7 @@ class HostAcknowledgement(BaseModel):
 
 class ServiceAcknowledgement(BaseModel):
     """Model for acknowledging a service problem"""
+
     host_name: str
     service_description: str
     sticky: bool = True
