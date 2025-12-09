@@ -23,16 +23,24 @@ SOFTWARE.
 """
 
 from datetime import datetime
+from enum import Enum, IntEnum
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 from .exceptions import ServiceNoProblemError, ServiceProblemAlreadyAcknowledgedError
 from .models import Comment, Link, ServiceAcknowledgement, ServiceComment, normalize_comments
 from .state import ConnectionState
 
 if TYPE_CHECKING:
-    from .host import Host
+    pass
+
+
+class ServiceStates(IntEnum):
+    OK = 0
+    WARNING = 1
+    WARN = 1
+    CRITICAL = 2
 
 
 class ServiceExtensions(BaseModel):
@@ -132,11 +140,6 @@ class ServiceExtensions(BaseModel):
     process_performance_data: Optional[int] = None
     retry_interval: Optional[float] = None
     scheduled_downtime_depth: Optional[int] = None
-    service_period: Optional[str] = None
-    services: Optional[List] = None
-    services_with_fullstate: Optional[List] = None
-    services_with_info: Optional[List] = None
-    services_with_state: Optional[List] = None
     smartping_timeout: Optional[int] = None
     staleness: Optional[float] = None
     state_type: Optional[int] = None
@@ -145,9 +148,6 @@ class ServiceExtensions(BaseModel):
     tag_names: Optional[List[str]] = None
     tag_values: Optional[List[str]] = None
     tags: Optional[Dict[str, str]] = None
-    total_services: Optional[int] = None
-    worst_service_hard_state: Optional[int] = None
-    worst_service_state: Optional[int] = None
 
     # we need to add validators
     @field_validator("comments_with_extra_info", mode="before")
@@ -167,11 +167,31 @@ class Service(BaseModel):
     updated_at: Optional[datetime] = Field(default_factory=datetime.now)
     extensions: ServiceExtensions
 
-    state: ConnectionState = Field(exclude=True, repr=False)
+    _state: ConnectionState = PrivateAttr()
 
     @property
     def comments(self):
         return self.extensions.comments_with_extra_info
+
+    @property
+    def description(self):
+        return self.extensions.description
+
+    @property
+    def acknowledged(self) -> bool:
+        return bool(self.extensions.acknowledged)
+
+    @property
+    def hostname(self) -> str:
+        return self.extensions.host_name
+
+    @property
+    def state(self) -> Enum:
+        return ServiceStates(self.extensions.state)
+
+    @property
+    def problem(self) -> bool:
+        return self.state.value != 0
 
     async def acknowledge(
         self, comment: str, sticky: bool = True, persistent: bool = False, notify: bool = True
@@ -185,35 +205,22 @@ class Service(BaseModel):
             persistent: Whether the acknowledgement persists across restarts
             notify: Whether to send notifications
         """
-        if self.extensions.acknowledged:
-            # problem already acknowledged
-            raise ServiceProblemAlreadyAcknowledgedError(
-                service_description=self.extensions.description
-            )
+        if self.acknowledged:
+            raise ServiceProblemAlreadyAcknowledgedError(service_description=self.description)
 
-        if not self.extensions.state:
-            # we have no problem on this service if state is True
-            raise ServiceNoProblemError(service_description=self.extensions.description)
+        if not self.problem:
+            raise ServiceNoProblemError(service_description=self.description)
 
         data = ServiceAcknowledgement(
-            host_name=self.extensions.host_name,
-            service_description=self.extensions.description,
+            host_name=self.hostname,
+            service_description=self.description,
             comment=comment,
             sticky=sticky,
             persistent=persistent,
             notify=notify,
         )
 
-        return await self.state.http.add_service_acknowledgement(data)
-
-    async def remove_acknowledgement(self) -> None:
-        """
-        Remove the acknowledgement from this service.
-
-        Raises:
-            NotImplementedError: This method is not yet implemented.
-        """
-        raise NotImplementedError("Service acknowledgement removal is not yet implemented")
+        return await self._state.http.add_service_acknowledgement(data)
 
     async def add_comment(self, comment: str, persistent: bool = False) -> ServiceComment:
         """
@@ -224,27 +231,16 @@ class Service(BaseModel):
             persistent: Whether the acknowledgement persists across restarts
         """
         data = ServiceComment(
-            host_name=self.extensions.host_name,
-            service_description=self.extensions.description,
+            host_name=self.hostname,
+            service_description=self.description,
             comment=comment,
             persistent=persistent,
         )
-        await self.state.http.add_service_comment(data)
+        await self._state.http.add_service_comment(data)
         return data
 
     async def add_downtime(
         self, start_time: datetime, end_time: datetime, comment: str, *, recurring: bool = False
-    ) -> None:
-        """
-        Schedule downtime for this service.
+    ) -> None: ...
 
-        Args:
-            start_time: When the downtime should start
-            end_time: When the downtime should end
-            comment: Comment explaining the reason for downtime
-            recurring: Whether the downtime should recur
-
-        Raises:
-            NotImplementedError: This method is not yet implemented.
-        """
-        raise NotImplementedError("Service downtime scheduling is not yet implemented")
+    async def remove_acknowledgement(self) -> None: ...

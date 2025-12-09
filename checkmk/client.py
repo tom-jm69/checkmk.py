@@ -126,7 +126,8 @@ class Client:
         parsed_services = []
         for service_data in services["value"]:
             try:
-                service = Service(**service_data, state=self._state)
+                service = Service(**service_data)
+                service._state = self._state
                 parsed_services.append(service)
             except Exception as e:
                 service_id = service_data.get("id", "unknown")
@@ -154,7 +155,8 @@ class Client:
         parsed_hosts = []
         for host_data in hosts["value"]:
             try:
-                host = Host(**host_data, state=self._state)
+                host = Host(**host_data)
+                host._state = self._state
                 parsed_hosts.append(host)
             except Exception as e:
                 host_name = host_data.get("id", "unknown")

@@ -23,9 +23,10 @@ SOFTWARE.
 """
 
 from datetime import datetime
+from enum import Enum, IntEnum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
 from .exceptions import HostNoProblemError, HostProblemAlreadyAcknowledgedError
 from .models import Comment, HostAcknowledgement, HostComment, Link, normalize_comments
@@ -33,6 +34,11 @@ from .state import ConnectionState
 
 if TYPE_CHECKING:
     from .service import Service
+
+
+class HostStates(IntEnum):
+    UP = 0
+    DOWN = 1
 
 
 class HostExtensions(BaseModel):
@@ -64,7 +70,7 @@ class Host(BaseModel):
     extensions: HostExtensions
     links: List[Link]
 
-    state: ConnectionState = Field(exclude=True, repr=False)
+    _state: ConnectionState = PrivateAttr()
 
     @property
     def comments(self):
@@ -73,6 +79,18 @@ class Host(BaseModel):
     @property
     def name(self):
         return self.extensions.name
+
+    @property
+    def acknowledged(self) -> bool:
+        return bool(self.extensions.acknowledged)
+
+    @property
+    def state(self) -> Enum:
+        return HostStates(self.extensions.state)
+
+    @property
+    def problem(self) -> bool:
+        return self.state.value != 0
 
     async def acknowledge(
         self, comment: str, *, sticky: bool = True, persistent: bool = False, notify: bool = True
@@ -87,12 +105,10 @@ class Host(BaseModel):
             notify: Whether to send notifications
         """
 
-        if self.extensions.acknowledged:
-            # problem already acknowledged
+        if self.acknowledged:
             raise HostProblemAlreadyAcknowledgedError(host_name=self.extensions.name)
 
-        if not self.extensions.state:
-            # we have no problem on this service if state is True
+        if not self.problem:
             raise HostNoProblemError(host_name=self.extensions.name)
 
         data = HostAcknowledgement(
@@ -103,7 +119,7 @@ class Host(BaseModel):
             notify=notify,
         )
 
-        return await self.state.http.add_host_acknowledgement(data)
+        return await self._state.http.add_host_acknowledgement(data)
 
     async def add_comment(self, comment: str, persistent: bool = False) -> HostComment:
         """
@@ -114,7 +130,7 @@ class Host(BaseModel):
             persistent: Whether the acknowledgement persists across restarts
         """
         data = HostComment(host_name=self.extensions.name, comment=comment, persistent=persistent)
-        await self.state.http.add_host_comment(data)
+        await self._state.http.add_host_comment(data)
         return data
 
     async def remove_acknowledgement(self) -> None:
@@ -135,11 +151,12 @@ class Host(BaseModel):
         """
         from .service import Service
 
-        response = await self.state.http.get_services(host_name=self.name)
+        response = await self._state.http.get_services(host_name=self.name)
         services = []
 
         for service_data in response.get("value", []):
-            service = Service(**service_data, state=self.state)
+            service = Service(**service_data)
+            service._state = self._state
             services.append(service)
 
         return services

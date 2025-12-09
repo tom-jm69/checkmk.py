@@ -47,6 +47,8 @@ from .exceptions import (
     TooManyRequests,
     Unauthorized,
 )
+from .host import Host
+from .service import Service
 
 __all__ = [
     "Client",
@@ -68,5 +70,7 @@ __all__ = [
     "HostNoProblemError",
     "HostProblemAlreadyAcknowledgedError",
     "ServiceProblemAlreadyAcknowledgedError",
+    "Service",
+    "Host",
 ]
 logging.getLogger(__name__).addHandler(logging.NullHandler())
