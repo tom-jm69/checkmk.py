@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
+from .enums import HostStates
 from .exceptions import HostNoProblemError, HostProblemAlreadyAcknowledgedError
 from .models import Comment, HostAcknowledgement, HostComment, Link, normalize_comments
 from .state import ConnectionState
@@ -68,20 +69,24 @@ class Host(BaseModel):
     _state: ConnectionState = PrivateAttr()
 
     @property
-    def comments(self):
-        return self.extensions.comments_with_extra_info
+    def _ext(self) -> HostExtensions:
+        return self.extensions
 
     @property
-    def name(self):
-        return self.extensions.name
+    def comments(self) -> List[Comment] | None:
+        return self._ext.comments_with_extra_info
 
     @property
     def acknowledged(self) -> bool:
-        return bool(self.extensions.acknowledged)
+        return bool(self._ext.acknowledged)
+
+    @property
+    def name(self) -> str:
+        return self._ext.name
 
     @property
     def state(self) -> Enum:
-        return HostStates(self.extensions.state)
+        return HostStates(self._ext.state)
 
     @property
     def problem(self) -> bool:
@@ -101,13 +106,13 @@ class Host(BaseModel):
         """
 
         if self.acknowledged:
-            raise HostProblemAlreadyAcknowledgedError(host_name=self.extensions.name)
+            raise HostProblemAlreadyAcknowledgedError(host_name=self.ext.name)
 
         if not self.problem:
-            raise HostNoProblemError(host_name=self.extensions.name)
+            raise HostNoProblemError(host_name=self.ext.name)
 
         data = HostAcknowledgement(
-            host_name=self.extensions.name,
+            host_name=self.ext.name,
             comment=comment,
             sticky=sticky,
             persistent=persistent,
@@ -124,7 +129,7 @@ class Host(BaseModel):
             comment: The comment
             persistent: Whether the acknowledgement persists across restarts
         """
-        data = HostComment(host_name=self.extensions.name, comment=comment, persistent=persistent)
+        data = HostComment(host_name=self.ext.name, comment=comment, persistent=persistent)
         await self._state.http.add_host_comment(data)
         return data
 

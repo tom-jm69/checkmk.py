@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
 
+from .enums import ServiceStates
 from .exceptions import ServiceNoProblemError, ServiceProblemAlreadyAcknowledgedError
 from .models import Comment, Link, ServiceAcknowledgement, ServiceComment, normalize_comments
 from .state import ConnectionState
@@ -163,24 +164,28 @@ class Service(BaseModel):
     _state: ConnectionState = PrivateAttr()
 
     @property
-    def comments(self):
-        return self.extensions.comments_with_extra_info
+    def _ext(self) -> ServiceExtensions:
+        return self.extensions
 
     @property
-    def description(self):
-        return self.extensions.description
+    def comments(self) -> List[Comment] | None:
+        return self._ext.comments_with_extra_info
+
+    @property
+    def description(self) -> str:
+        return self._ext.description
 
     @property
     def acknowledged(self) -> bool:
-        return bool(self.extensions.acknowledged)
+        return bool(self._ext.acknowledged)
 
     @property
     def hostname(self) -> str:
-        return self.extensions.host_name
+        return self._ext.host_name
 
     @property
     def state(self) -> Enum:
-        return ServiceStates(self.extensions.state)
+        return ServiceStates(self._ext.state)
 
     @property
     def problem(self) -> bool:
