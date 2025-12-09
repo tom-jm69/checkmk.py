@@ -23,7 +23,7 @@ SOFTWARE.
 """
 
 from datetime import datetime
-from enum import Enum, IntEnum
+from enum import Enum
 from typing import TYPE_CHECKING, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
@@ -34,13 +34,6 @@ from .state import ConnectionState
 
 if TYPE_CHECKING:
     pass
-
-
-class ServiceStates(IntEnum):
-    OK = 0
-    WARNING = 1
-    WARN = 1
-    CRITICAL = 2
 
 
 class ServiceExtensions(BaseModel):

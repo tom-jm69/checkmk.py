@@ -23,7 +23,7 @@ SOFTWARE.
 """
 
 from datetime import datetime
-from enum import Enum, IntEnum
+from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
@@ -34,11 +34,6 @@ from .state import ConnectionState
 
 if TYPE_CHECKING:
     from .service import Service
-
-
-class HostStates(IntEnum):
-    UP = 0
-    DOWN = 1
 
 
 class HostExtensions(BaseModel):
