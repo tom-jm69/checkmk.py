@@ -38,6 +38,7 @@ from .constants import (
     CHECKMK_ADD_HOST_COMMENT_ENDPOINT,
     CHECKMK_ADD_SERVICE_COMMENT_ENDPOINT,
     CHECKMK_HOSTS_ENDPOINT,
+    CHECKMK_SERVICE_ENDPOINT,
     CHECKMK_SERVICES_ENDPOINT,
 )
 from .exceptions import (
@@ -163,7 +164,7 @@ class HTTPClient:
                             f"{method} {url} with {params} returned status {response.status}"
                         )
 
-                        data = await response.json()
+                        data = await json_or_text(response)
                         if 200 <= response.status < 300:
                             _log.debug(f"{method} {url} received: {data}")
                             return data
@@ -215,7 +216,6 @@ class HTTPClient:
                         await asyncio.sleep(backoff)
                         continue
                     raise
-
             raise RuntimeError("Unreachable code in HTTP handling")
 
 
@@ -241,7 +241,55 @@ class CheckmkHTTP:
     async def close(self) -> None:
         await self.client.close()
 
-    async def get_services(self, **parameters: Dict[str, Any]) -> Dict[str, Any]:
+    async def get_service(self, host_name: str, service_description: str) -> Dict[str, Any]:
+        columns_request_data = [
+            "host_name",
+            "description",
+            "state",
+            "last_check",
+            "acknowledged",
+            "acknowledgement_type",
+            "check_command",
+            "check_command_expanded",
+            "check_flapping_recovery_notification",
+            "check_freshness",
+            "check_interval",
+            "check_options",
+            "check_period",
+            "check_type",
+            "checks_enabled",
+            "execution_time",
+            "flap_detection_enabled",
+            "flappiness",
+            "has_been_checked",
+            "last_state",
+            "last_state_change",
+            "last_notification",
+            "next_check",
+            "next_notification",
+            "notifications_enabled",
+            "plugin_output",
+            "long_plugin_output",
+            "comments_with_extra_info",
+            "custom_variables",
+        ]
+
+        params = {
+            "service_description": service_description,
+            "columns": columns_request_data,
+        }
+
+        response = await self.client.request(
+            Route(
+                base_url=self.url,
+                method="GET",
+                path=CHECKMK_SERVICE_ENDPOINT.format(host_name=host_name),
+            ),
+            params=params,
+        )
+        print(response)
+
+    async def get_services(self, host_name: Optional[str] = None) -> Dict[str, Any]:
         columns_request_data = [
             "host_name",
             "description",
@@ -276,6 +324,10 @@ class CheckmkHTTP:
 
         data = ColumnsRequest(columns=columns_request_data).model_dump_json()
 
+        params = {}
+        if host_name:
+            params["host_name"] = host_name
+
         try:
             response = await self.client.request(
                 Route(
@@ -283,6 +335,7 @@ class CheckmkHTTP:
                     method="POST",
                     path=CHECKMK_SERVICES_ENDPOINT,
                 ),
+                params=params if params else None,
                 data=data,
             )
         except Exception as e:
@@ -308,6 +361,9 @@ class CheckmkHTTP:
             "acknowledged",
             "acknowledgement_type",
             "custom_variables",
+            "comments",
+            "comments_with_extra_info",
+            "services",
         ]
 
         data = ColumnsRequest(columns=columns_request_data).model_dump_json()
@@ -330,10 +386,10 @@ class CheckmkHTTP:
             raise HostParseError(
                 message="Invalid response structure: missing 'value' field", raw_data=response
             )
-
+        print(response)
         return response
 
-    async def add_service_comment(self, comment: ServiceComment) -> Dict[str, Any]:
+    async def add_service_comment(self, comment: ServiceComment) -> bool:
         data = comment.model_dump_json()
 
         return await self.client.request(
@@ -345,7 +401,7 @@ class CheckmkHTTP:
             data=data,
         )
 
-    async def add_host_comment(self, comment: HostComment) -> Dict[str, Any]:
+    async def add_host_comment(self, comment: HostComment) -> bool:
         data = comment.model_dump_json()
 
         return await self.client.request(

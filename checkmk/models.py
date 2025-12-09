@@ -22,7 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from typing import List, Optional
+from datetime import datetime
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field, HttpUrl
 
@@ -40,6 +41,16 @@ class APIAuth(BaseModel):
         credentials = f"{self.username}:{self.secret}"
         encoded = base64.b64encode(credentials.encode()).decode()
         return f"Basic {encoded}"
+
+
+def normalize_comments(v):
+    if v is None:
+        return v
+
+    if isinstance(v, list) and v and isinstance(v[0], Comment):
+        return v
+
+    return [Comment.parse(row) for row in v]
 
 
 class Link(BaseModel):
@@ -63,7 +74,7 @@ class HostComment(BaseModel):
     host_name: str
     comment: str
     persistent: bool = True
-    author: Optional[str] = None
+    comment_type: Literal["host"] = "host"
 
 
 class ServiceComment(BaseModel):
@@ -73,7 +84,7 @@ class ServiceComment(BaseModel):
     service_description: str
     comment: str
     persistent: bool = True
-    author: Optional[str] = None
+    comment_type: Literal["service"] = "service"
 
 
 class HostAcknowledgement(BaseModel):
@@ -84,7 +95,7 @@ class HostAcknowledgement(BaseModel):
     persistent: bool = False
     notify: bool = True
     comment: str
-    acknowledge_type: str = "host"
+    acknowledge_type: Literal["host"] = "host"
 
 
 class ServiceAcknowledgement(BaseModel):
@@ -96,4 +107,26 @@ class ServiceAcknowledgement(BaseModel):
     persistent: bool = False
     notify: bool = True
     comment: str
-    acknowledge_type: str = "service"
+    acknowledge_type: Literal["service"] = "service"
+
+
+class Comment(BaseModel):
+    id: int
+    author: str
+    comment: str
+    entry_type: int
+    entry_time: datetime
+
+    @classmethod
+    def parse(cls, row: list) -> "Comment":
+        """
+        Parse a single raw row:
+        [id, author, comment, entry_type, unix_timestamp]
+        """
+        return cls(
+            id=row[0],
+            author=row[1],
+            comment=row[2],
+            entry_type=row[3],
+            entry_time=row[4],
+        )

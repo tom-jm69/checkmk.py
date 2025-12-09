@@ -23,13 +23,16 @@ SOFTWARE.
 """
 
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .exceptions import ServiceNoProblemError, ServiceProblemAlreadyAcknowledgedError
-from .models import Link, ServiceAcknowledgement
+from .models import Comment, Link, ServiceAcknowledgement, ServiceComment, normalize_comments
 from .state import ConnectionState
+
+if TYPE_CHECKING:
+    from .host import Host
 
 
 class ServiceExtensions(BaseModel):
@@ -47,7 +50,7 @@ class ServiceExtensions(BaseModel):
     check_period: Optional[str] = None
     check_type: Optional[int] = None
     checks_enabled: Optional[int] = None
-    # comments_with_extra_info: Optional[List[Comment]] = None
+    comments_with_extra_info: Optional[List[Comment]] = None
     contact_groups: Optional[List] = None
     contacts: Optional[List] = None
     current_attempt: Optional[int] = None
@@ -147,6 +150,10 @@ class ServiceExtensions(BaseModel):
     worst_service_state: Optional[int] = None
 
     # we need to add validators
+    @field_validator("comments_with_extra_info", mode="before")
+    @classmethod
+    def parse_comments(cls, v):
+        return normalize_comments(v)
 
 
 class Service(BaseModel):
@@ -159,10 +166,15 @@ class Service(BaseModel):
     title: str
     updated_at: Optional[datetime] = Field(default_factory=datetime.now)
     extensions: ServiceExtensions
+
     state: ConnectionState = Field(exclude=True, repr=False)
 
+    @property
+    def comments(self):
+        return self.extensions.comments_with_extra_info
+
     async def acknowledge(
-        self, comment: str, *, sticky: bool = True, persistent: bool = False, notify: bool = True
+        self, comment: str, sticky: bool = True, persistent: bool = False, notify: bool = True
     ) -> bool:
         """
         Acknowledge this service.
@@ -183,7 +195,6 @@ class Service(BaseModel):
             # we have no problem on this service if state is True
             raise ServiceNoProblemError(service_description=self.extensions.description)
 
-
         data = ServiceAcknowledgement(
             host_name=self.extensions.host_name,
             service_description=self.extensions.description,
@@ -203,6 +214,23 @@ class Service(BaseModel):
             NotImplementedError: This method is not yet implemented.
         """
         raise NotImplementedError("Service acknowledgement removal is not yet implemented")
+
+    async def add_comment(self, comment: str, persistent: bool = False) -> ServiceComment:
+        """
+        Add a comment to this host.
+
+        Args:
+            comment: The comment
+            persistent: Whether the acknowledgement persists across restarts
+        """
+        data = ServiceComment(
+            host_name=self.extensions.host_name,
+            service_description=self.extensions.description,
+            comment=comment,
+            persistent=persistent,
+        )
+        await self.state.http.add_service_comment(data)
+        return data
 
     async def add_downtime(
         self, start_time: datetime, end_time: datetime, comment: str, *, recurring: bool = False

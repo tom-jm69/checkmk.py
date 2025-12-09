@@ -1,4 +1,5 @@
-from checkmk import Client
+from checkmk import Client, HostProblemAlreadyAcknowledgedError
+from checkmk.exceptions import HostNoProblemError
 
 
 async def main() -> None:
@@ -12,9 +13,10 @@ async def main() -> None:
         verify_ssl=False,
     ) as client:
         hosts = [host for host in await client.get_hosts()]
+        services = [service for service in await client.get_services()]
         for host in hosts:
-            ack = await host.acknowledge("test")
-            print(ack)
+            for service in await host.get_services():
+                print(service)
 
 
 if __name__ == "__main__":

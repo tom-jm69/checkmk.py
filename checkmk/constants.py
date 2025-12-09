@@ -28,3 +28,5 @@ CHECKMK_ADD_SERVICE_COMMENT_ENDPOINT = "domain-types/comment/collections/service
 CHECKMK_ADD_HOST_COMMENT_ENDPOINT = "domain-types/comment/collections/host"
 CHECKMK_ACKNOWLEDGE_SERVICE_ENDPOINT = "domain-types/acknowledge/collections/service"
 CHECKMK_ACKNOWLEDGE_HOST_ENDPOINT = "domain-types/acknowledge/collections/host"
+CHECKMK_SERVICE_ENDPOINT: str = "objects/host/{host_name}/actions/show_service/invoke"
+CHECKMK_HOST_ENDPOINT: str = "objects/host/{host_name}"

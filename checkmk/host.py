@@ -23,13 +23,16 @@ SOFTWARE.
 """
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .exceptions import HostNoProblemError, HostProblemAlreadyAcknowledgedError
-from .models import HostAcknowledgement, Link
+from .models import Comment, HostAcknowledgement, HostComment, Link, normalize_comments
 from .state import ConnectionState
+
+if TYPE_CHECKING:
+    from .service import Service
 
 
 class HostExtensions(BaseModel):
@@ -42,6 +45,12 @@ class HostExtensions(BaseModel):
     acknowledgement_type: Optional[int] = None
     custom_variables: Optional[dict] = None
     updated_at: Optional[datetime] = Field(default_factory=datetime.now)
+    comments_with_extra_info: Optional[List[Comment]] = None
+
+    @field_validator("comments_with_extra_info", mode="before")
+    @classmethod
+    def parse_comments(cls, v):
+        return normalize_comments(v)
 
 
 class Host(BaseModel):
@@ -56,6 +65,14 @@ class Host(BaseModel):
     links: List[Link]
 
     state: ConnectionState = Field(exclude=True, repr=False)
+
+    @property
+    def comments(self):
+        return self.extensions.comments_with_extra_info
+
+    @property
+    def name(self):
+        return self.extensions.name
 
     async def acknowledge(
         self, comment: str, *, sticky: bool = True, persistent: bool = False, notify: bool = True
@@ -88,6 +105,18 @@ class Host(BaseModel):
 
         return await self.state.http.add_host_acknowledgement(data)
 
+    async def add_comment(self, comment: str, persistent: bool = False) -> HostComment:
+        """
+        Add a comment to this host.
+
+        Args:
+            comment: The comment
+            persistent: Whether the acknowledgement persists across restarts
+        """
+        data = HostComment(host_name=self.extensions.name, comment=comment, persistent=persistent)
+        await self.state.http.add_host_comment(data)
+        return data
+
     async def remove_acknowledgement(self) -> None:
         """
         Remove the acknowledgement from this host.
@@ -96,3 +125,21 @@ class Host(BaseModel):
             NotImplementedError: This method is not yet implemented.
         """
         raise NotImplementedError("Host acknowledgement removal is not yet implemented")
+
+    async def get_services(self) -> List["Service"]:
+        """
+        Fetch all services associated with this host.
+
+        Returns:
+            List[Service]: List of Service objects for this host
+        """
+        from .service import Service
+
+        response = await self.state.http.get_services(host_name=self.name)
+        services = []
+
+        for service_data in response.get("value", []):
+            service = Service(**service_data, state=self.state)
+            services.append(service)
+
+        return services
