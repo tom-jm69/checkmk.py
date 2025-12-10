@@ -3,7 +3,7 @@ from checkmk import Client
 
 async def main() -> None:
     async with Client(
-        url="172.18.0.3",
+        url="172.18.0.2",
         scheme="http",
         username="rest_api",
         secret="MkA3TEc$sF1OhPVt",
@@ -14,8 +14,12 @@ async def main() -> None:
         hosts = [host for host in await client.get_hosts()]
         # services = [service for service in await client.get_services()]
         for host in hosts:
-            for service in await host.get_services():
-                print(service.extensions.tags)
+            vars = host.custom_variables
+            if vars:
+                print(vars.get("TAGS"))
+            tags = host.tags
+            if tags:
+                print(tags.get("agent"))
 
 
 if __name__ == "__main__":

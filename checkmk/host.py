@@ -45,9 +45,10 @@ class HostExtensions(BaseModel):
     last_check: Optional[int] = None
     acknowledged: Optional[int] = None
     acknowledgement_type: Optional[int] = None
-    custom_variables: Optional[dict] = None
+    custom_variables: Optional[dict[str, str]] = None
     updated_at: Optional[datetime] = Field(default_factory=datetime.now)
     comments_with_extra_info: Optional[List[Comment]] = None
+    tags: Optional[dict[str, str]] = None
 
     @field_validator("comments_with_extra_info", mode="before")
     @classmethod
@@ -92,6 +93,14 @@ class Host(BaseModel):
     def problem(self) -> bool:
         return self.state.value != 0
 
+    @property
+    def custom_variables(self) -> dict[str, str] | None:
+        return self._ext.custom_variables
+
+    @property
+    def tags(self) -> dict[str, str] | None:
+        return self._ext.tags
+
     async def acknowledge(
         self, comment: str, *, sticky: bool = True, persistent: bool = False, notify: bool = True
     ) -> None:
@@ -106,13 +115,13 @@ class Host(BaseModel):
         """
 
         if self.acknowledged:
-            raise HostProblemAlreadyAcknowledgedError(host_name=self.ext.name)
+            raise HostProblemAlreadyAcknowledgedError(host_name=self._ext.name)
 
         if not self.problem:
-            raise HostNoProblemError(host_name=self.ext.name)
+            raise HostNoProblemError(host_name=self._ext.name)
 
         data = HostAcknowledgement(
-            host_name=self.ext.name,
+            host_name=self._ext.name,
             comment=comment,
             sticky=sticky,
             persistent=persistent,

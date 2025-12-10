@@ -287,7 +287,7 @@ class CheckmkHTTP:
             ),
             params=params,
         )
-        print(response)
+        return response
 
     async def get_services(self, host_name: Optional[str] = None) -> Dict[str, Any]:
         columns_request_data = [
@@ -360,10 +360,11 @@ class CheckmkHTTP:
             "last_check",
             "acknowledged",
             "acknowledgement_type",
-            "custom_variables",
             "comments",
             "comments_with_extra_info",
             "services",
+            "tags",
+            "custom_variables",
         ]
 
         data = ColumnsRequest(columns=columns_request_data).model_dump_json()
@@ -386,7 +387,6 @@ class CheckmkHTTP:
             raise HostParseError(
                 message="Invalid response structure: missing 'value' field", raw_data=response
             )
-        print(response)
         return response
 
     async def add_service_comment(self, comment: ServiceComment) -> bool:

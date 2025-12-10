@@ -52,7 +52,6 @@ def normalize_comments(v):
 
     return [Comment.parse(row) for row in v]
 
-
 class Link(BaseModel):
     domain_type: Optional[str] = Field(default=None, alias="domainType")
     href: HttpUrl
