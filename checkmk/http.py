@@ -294,9 +294,9 @@ class CheckmkHTTP:
             "host_name",
             "description",
             "state",
-            "last_check",
             "acknowledged",
             "acknowledgement_type",
+            "last_check",
             "check_command",
             "check_command_expanded",
             "check_flapping_recovery_notification",
@@ -320,6 +320,12 @@ class CheckmkHTTP:
             "long_plugin_output",
             "comments_with_extra_info",
             "custom_variables",
+            "host_tags",
+            "tags",
+            "downtimes_with_extra_info",
+            "is_executing",
+            "is_flapping",
+            "labels",
         ]
 
         data = ColumnsRequest(columns=columns_request_data).model_dump_json()

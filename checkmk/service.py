@@ -38,64 +38,37 @@ if TYPE_CHECKING:
 
 
 class ServiceExtensions(BaseModel):
-    description: str
     host_name: str
+    description: str
     state: int
-    acknowledged: Optional[int] = None
-    acknowledgement_type: Optional[int] = None
-    check_command: Optional[str] = None
-    check_command_expanded: Optional[str] = None
-    check_flapping_recovery_notification: Optional[int] = None
-    check_freshness: Optional[int] = None
-    check_interval: Optional[float] = None
-    check_options: Optional[int] = None
-    check_period: Optional[str] = None
-    check_type: Optional[int] = None
-    checks_enabled: Optional[int] = None
+    acknowledged: bool
+    acknowledgement_type: int
+    last_check: datetime
+    check_command: str
+    check_command_expanded: str
+    check_flapping_recovery_notification: int
+    check_freshness: int
+    check_interval: float
+    check_options: int
+    check_period: str
+    check_type: int
+    checks_enabled: bool
+    # optional
     comments_with_extra_info: Optional[List[Comment]] = None
-    contact_groups: Optional[List] = None
-    contacts: Optional[List] = None
-    current_attempt: Optional[int] = None
-    current_notification_number: Optional[int] = None
     custom_variable_names: Optional[List] = None
     custom_variable_values: Optional[List] = None
     custom_variables: Optional[Dict] = None
-    display_name: Optional[str] = None
-    downtimes: Optional[List] = None
     downtimes_with_extra_info: Optional[List] = None
-    downtimes_with_info: Optional[List] = None
-    event_handler: Optional[str] = None
-    event_handler_enabled: Optional[int] = None
     execution_time: Optional[float] = None
     first_notification_delay: Optional[float] = None
     flap_detection_enabled: Optional[int] = None
     flappiness: Optional[float] = None
-    groups: Optional[List] = None
-    hard_state: Optional[int] = None
-    has_been_checked: Optional[int] = None
-    high_flap_threshold: Optional[float] = None
+    has_been_checked: bool
 
-    # Extended fields
-    icon_image: Optional[str] = None
-    icon_image_alt: Optional[str] = None
-    icon_image_expanded: Optional[str] = None
-    in_check_period: Optional[int] = None
-    in_notification_period: Optional[int] = None
-    in_service_period: Optional[int] = None
-    initial_state: Optional[int] = None
-    is_executing: Optional[int] = None
-    is_flapping: Optional[int] = None
-    label_names: Optional[List[str]] = None
-    label_source_names: Optional[List[str]] = None
-    label_source_values: Optional[List[str]] = None
-    label_sources: Optional[Dict] = None
-    label_values: Optional[List[str]] = None
+    is_executing: bool
+    is_flapping: bool
     labels: Optional[Dict[str, str]] = None
-    last_check: Optional[datetime] = None
-    last_hard_state: Optional[int] = None
-    last_hard_state_change: Optional[int] = None
-    last_notification: Optional[int] = None
-    last_state: Optional[int] = None
+    last_state: int
     last_state_change: Optional[datetime] = None
     last_time_down: Optional[datetime] = None
     last_time_unreachable: Optional[datetime] = None
@@ -137,11 +110,8 @@ class ServiceExtensions(BaseModel):
     smartping_timeout: Optional[int] = None
     staleness: Optional[float] = None
     state_type: Optional[int] = None
-    statusmap_image: Optional[str] = None
-    structured_status: Optional[bytes] = None
-    tag_names: Optional[List[str]] = None
-    tag_values: Optional[List[str]] = None
     tags: Optional[Dict[str, str]] = None
+    host_tags: Optional[Dict[str, str]] = None
 
     # we need to add validators
     @field_validator("comments_with_extra_info", mode="before")
@@ -177,10 +147,54 @@ class Service(BaseModel):
 
     @property
     def acknowledged(self) -> bool:
-        return bool(self._ext.acknowledged)
+        return self._ext.acknowledged
 
     @property
-    def hostname(self) -> str:
+    def acknowledgement_type(self) -> int:
+        return self._ext.acknowledgement_type
+
+    @property
+    def last_check(self) -> datetime:
+        return self._ext.last_check
+
+    @property
+    def check_command(self) -> str:
+        return self._ext.check_command
+
+    @property
+    def check_command_expanded(self) -> str:
+        return self._ext.check_command_expanded
+
+    @property
+    def check_flapping_recovery_notification(self) -> int:
+        return self._ext.check_flapping_recovery_notification
+
+    @property
+    def check_freshness(self) -> int:
+        return self._ext.check_freshness
+
+    @property
+    def check_interval(self) -> float:
+        return self._ext.check_interval
+
+    @property
+    def check_options(self) -> int:
+        return self._ext.check_options
+
+    @property
+    def check_period(self) -> str:
+        return self._ext.check_period
+
+    @property
+    def check_type(self) -> int:
+        return self._ext.check_type
+
+    @property
+    def checks_enabled(self) -> bool:
+        return bool(self._ext.checks_enabled)
+
+    @property
+    def host_name(self) -> str:
         return self._ext.host_name
 
     @property
@@ -190,6 +204,18 @@ class Service(BaseModel):
     @property
     def problem(self) -> bool:
         return self.state.value != 0
+
+    @property
+    def custom_variables(self) -> dict[str, str] | None:
+        return self._ext.custom_variables
+
+    @property
+    def tags(self) -> dict[str, str] | None:
+        return self._ext.tags
+
+    @property
+    def host_tags(self) -> dict[str, str] | None:
+        return self._ext.host_tags
 
     async def acknowledge(
         self, comment: str, sticky: bool = True, persistent: bool = False, notify: bool = True
@@ -210,7 +236,7 @@ class Service(BaseModel):
             raise ServiceNoProblemError(service_description=self.description)
 
         data = ServiceAcknowledgement(
-            host_name=self.hostname,
+            host_name=self.host_name,
             service_description=self.description,
             comment=comment,
             sticky=sticky,
@@ -229,7 +255,7 @@ class Service(BaseModel):
             persistent: Whether the acknowledgement persists across restarts
         """
         data = ServiceComment(
-            host_name=self.hostname,
+            host_name=self.host_name,
             service_description=self.description,
             comment=comment,
             persistent=persistent,
