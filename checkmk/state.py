@@ -23,14 +23,15 @@ SOFTWARE.
 """
 
 
-from typing import Any, Dict
+from typing import TYPE_CHECKING, Any, Dict
 
-from .http import CheckmkHTTP
+if TYPE_CHECKING:
+    from .http import CheckmkHTTP
 
 
 class ConnectionState:
     """Central state manager that holds shared resources"""
-    def __init__(self, http: CheckmkHTTP):
+    def __init__(self, http: "CheckmkHTTP"):
         self.http = http
         self._cache: Dict[int, Any] = {}
     

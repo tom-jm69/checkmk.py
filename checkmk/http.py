@@ -54,10 +54,11 @@ from .exceptions import (
 )
 from .models import (
     APIAuth,
+    CheckmkColumns,
     ColumnsRequest,
     HostAcknowledgement,
     HostComment,
-    ServiceAcknowledgement,
+    ServiceAcknowledgementRequest,
     ServiceComment,
 )
 
@@ -242,37 +243,7 @@ class CheckmkHTTP:
         await self.client.close()
 
     async def get_service(self, host_name: str, service_description: str) -> Dict[str, Any]:
-        columns_request_data = [
-            "host_name",
-            "description",
-            "state",
-            "last_check",
-            "acknowledged",
-            "acknowledgement_type",
-            "check_command",
-            "check_command_expanded",
-            "check_flapping_recovery_notification",
-            "check_freshness",
-            "check_interval",
-            "check_options",
-            "check_period",
-            "check_type",
-            "checks_enabled",
-            "execution_time",
-            "flap_detection_enabled",
-            "flappiness",
-            "has_been_checked",
-            "last_state",
-            "last_state_change",
-            "last_notification",
-            "next_check",
-            "next_notification",
-            "notifications_enabled",
-            "plugin_output",
-            "long_plugin_output",
-            "comments_with_extra_info",
-            "custom_variables",
-        ]
+        columns_request_data = CheckmkColumns.get_columns()
 
         params = {
             "service_description": service_description,
@@ -290,43 +261,7 @@ class CheckmkHTTP:
         return response
 
     async def get_services(self, host_name: Optional[str] = None) -> Dict[str, Any]:
-        columns_request_data = [
-            "host_name",
-            "description",
-            "state",
-            "acknowledged",
-            "acknowledgement_type",
-            "last_check",
-            "check_command",
-            "check_command_expanded",
-            "check_flapping_recovery_notification",
-            "check_freshness",
-            "check_interval",
-            "check_options",
-            "check_period",
-            "check_type",
-            "checks_enabled",
-            "execution_time",
-            "flap_detection_enabled",
-            "flappiness",
-            "has_been_checked",
-            "last_state",
-            "last_state_change",
-            "last_notification",
-            "next_check",
-            "next_notification",
-            "notifications_enabled",
-            "plugin_output",
-            "long_plugin_output",
-            "comments_with_extra_info",
-            "custom_variables",
-            "host_tags",
-            "tags",
-            "downtimes_with_extra_info",
-            "is_executing",
-            "is_flapping",
-            "labels",
-        ]
+        columns_request_data = CheckmkColumns.get_columns()
 
         data = ColumnsRequest(columns=columns_request_data).model_dump_json()
 
@@ -360,18 +295,7 @@ class CheckmkHTTP:
         self.client.auth = APIAuth(username=self.username, secret=self.secret)
 
     async def get_hosts(self) -> Dict[str, Any]:
-        columns_request_data = [
-            "name",
-            "state",
-            "last_check",
-            "acknowledged",
-            "acknowledgement_type",
-            "comments",
-            "comments_with_extra_info",
-            "services",
-            "tags",
-            "custom_variables",
-        ]
+        columns_request_data = CheckmkColumns.get_columns(["name"])
 
         data = ColumnsRequest(columns=columns_request_data).model_dump_json()
 
@@ -432,7 +356,9 @@ class CheckmkHTTP:
         )
         return True
 
-    async def add_service_acknowledgement(self, acknowledgement: ServiceAcknowledgement) -> bool:
+    async def add_service_acknowledgement(
+        self, acknowledgement: ServiceAcknowledgementRequest
+    ) -> bool:
         data = acknowledgement.model_dump_json()
 
         await self.client.request(

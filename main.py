@@ -14,12 +14,7 @@ async def main() -> None:
         hosts = [host for host in await client.get_hosts()]
         # services = [service for service in await client.get_services()]
         for host in hosts:
-            vars = host.custom_variables
-            if vars:
-                print(vars.get("TAGS"))
-            tags = host.tags
-            if tags:
-                print(tags.get("agent"))
+            print(host.model_dump_json())
 
 
 if __name__ == "__main__":

@@ -26,98 +26,166 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from .enums import ServiceStates
 from .exceptions import ServiceNoProblemError, ServiceProblemAlreadyAcknowledgedError
-from .models import Comment, Link, ServiceAcknowledgement, ServiceComment, normalize_comments
-from .state import ConnectionState
+from .models import (
+    Acknowledgement,
+    CheckInfo,
+    Comment,
+    CustomServiceData,
+    DowntimeCommentInfo,
+    FlappingInfo,
+    Link,
+    NotesInfo,
+    NotificationInfo,
+    PerformanceInfo,
+    PluginOutputInfo,
+    ServiceAcknowledgementRequest,
+    ServiceComment,
+    StateHistory,
+    SystemInfo,
+)
 
 if TYPE_CHECKING:
-    pass
+    from .state import ConnectionState
 
 
 class ServiceExtensions(BaseModel):
+    """Service extensions with organized nested data models."""
+
+    # Core fields (kept at top level for easy access)
     host_name: str
     description: str
-    state: int
-    acknowledged: bool
-    acknowledgement_type: int
-    last_check: datetime
-    check_command: str
-    check_command_expanded: str
-    check_flapping_recovery_notification: int
-    check_freshness: int
-    check_interval: float
-    check_options: int
-    check_period: str
-    check_type: int
-    checks_enabled: bool
-    # optional
-    comments_with_extra_info: Optional[List[Comment]] = None
-    custom_variable_names: Optional[List] = None
-    custom_variable_values: Optional[List] = None
-    custom_variables: Optional[Dict] = None
-    downtimes_with_extra_info: Optional[List] = None
-    execution_time: Optional[float] = None
-    first_notification_delay: Optional[float] = None
-    flap_detection_enabled: Optional[int] = None
-    flappiness: Optional[float] = None
-    has_been_checked: bool
 
-    is_executing: bool
-    is_flapping: bool
-    labels: Optional[Dict[str, str]] = None
-    last_state: int
-    last_state_change: Optional[datetime] = None
-    last_time_down: Optional[datetime] = None
-    last_time_unreachable: Optional[datetime] = None
-    last_time_up: Optional[datetime] = None
-    latency: Optional[float] = None
-    long_plugin_output: Optional[str] = None
-    low_flap_threshold: Optional[float] = None
-    max_check_attempts: Optional[int] = None
-    metrics: Optional[List] = None
-    mk_inventory: Optional[bytes] = None
-    mk_inventory_gz: Optional[bytes] = None
-    mk_inventory_last: Optional[int] = None
-    mk_logwatch_files: Optional[List[str]] = None
-    modified_attributes: Optional[int] = None
-    modified_attributes_list: Optional[List[str]] = None
-    next_check: Optional[datetime] = None
-    next_notification: Optional[int] = None
-    no_more_notifications: Optional[int] = None
-    notes: Optional[str] = None
-    notes_expanded: Optional[str] = None
-    notes_url: Optional[str] = None
-    notes_url_expanded: Optional[str] = None
-    notification_interval: Optional[float] = None
-    notification_period: Optional[str] = None
-    notification_postponement_reason: Optional[str] = None
-    notifications_enabled: Optional[int] = None
-    obsess_over_host: Optional[int] = None
-    parents: Optional[List[str]] = None
-    pending_flex_downtime: Optional[int] = None
-    percent_state_change: Optional[float] = None
-    perf_data: Optional[str] = None
-    performance_data: Optional[Dict[str, float]] = None
-    plugin_output: Optional[str] = None
-    pnpgraph_present: Optional[int] = None
-    previous_hard_state: Optional[int] = None
-    process_performance_data: Optional[int] = None
-    retry_interval: Optional[float] = None
-    scheduled_downtime_depth: Optional[int] = None
-    smartping_timeout: Optional[int] = None
-    staleness: Optional[float] = None
-    state_type: Optional[int] = None
-    tags: Optional[Dict[str, str]] = None
-    host_tags: Optional[Dict[str, str]] = None
+    # Grouped nested models
+    check_info: CheckInfo
+    state_history: StateHistory
+    flapping_info: FlappingInfo
+    notification_info: NotificationInfo
+    performance_info: PerformanceInfo
+    output_info: PluginOutputInfo
+    downtime_comment_info: DowntimeCommentInfo
+    custom_data: CustomServiceData
+    notes_info: NotesInfo
+    system_info: SystemInfo
+    acknowledgement_info: Acknowledgement
 
-    # we need to add validators
-    @field_validator("comments_with_extra_info", mode="before")
+    @model_validator(mode="before")
     @classmethod
-    def parse_comments(cls, v):
-        return normalize_comments(v)
+    def organize_flat_data(cls, data: dict) -> dict:
+        """Transform flat API response into nested structure."""
+        if isinstance(data, dict) and "check_info" not in data:
+            # This is a flat structure from the API, organize it
+            return {
+                # Core fields
+                "host_name": data.get("host_name"),
+                "description": data.get("description"),
+                # Check info
+                "check_info": {
+                    "check_command": data.get("check_command"),
+                    "check_command_expanded": data.get("check_command_expanded"),
+                    "check_flapping_recovery_notification": data.get(
+                        "check_flapping_recovery_notification"
+                    ),
+                    "check_freshness": data.get("check_freshness"),
+                    "check_interval": data.get("check_interval"),
+                    "check_options": data.get("check_options"),
+                    "check_period": data.get("check_period"),
+                    "check_type": data.get("check_type"),
+                    "checks_enabled": data.get("checks_enabled"),
+                    "has_been_checked": data.get("has_been_checked"),
+                    "is_executing": data.get("is_executing"),
+                    "last_check": data.get("last_check"),
+                    "max_check_attempts": data.get("max_check_attempts"),
+                    "next_check": data.get("next_check"),
+                    "retry_interval": data.get("retry_interval"),
+                },
+                # State history
+                "state_history": {
+                    "state": data.get("state"),
+                    "last_state": data.get("last_state"),
+                    "last_state_change": data.get("last_state_change"),
+                    "previous_hard_state": data.get("previous_hard_state"),
+                },
+                # Flapping info
+                "flapping_info": {
+                    "is_flapping": data.get("is_flapping"),
+                    "flap_detection_enabled": data.get("flap_detection_enabled"),
+                    "flappiness": data.get("flappiness"),
+                    "low_flap_threshold": data.get("low_flap_threshold"),
+                    "percent_state_change": data.get("percent_state_change"),
+                },
+                # Notification info
+                "notification_info": {
+                    "first_notification_delay": data.get("first_notification_delay"),
+                    "next_notification": data.get("next_notification"),
+                    "no_more_notifications": data.get("no_more_notifications"),
+                    "notification_interval": data.get("notification_interval"),
+                    "notification_period": data.get("notification_period"),
+                    "notification_postponement_reason": data.get(
+                        "notification_postponement_reason"
+                    ),
+                    "notifications_enabled": data.get("notifications_enabled"),
+                },
+                # Performance info
+                "performance_info": {
+                    "execution_time": data.get("execution_time"),
+                    "latency": data.get("latency"),
+                    "metrics": data.get("metrics"),
+                    "perf_data": data.get("perf_data"),
+                    "performance_data": data.get("performance_data"),
+                    "pnpgraph_present": data.get("pnpgraph_present"),
+                    "process_performance_data": data.get("process_performance_data"),
+                },
+                # Output info
+                "output_info": {
+                    "plugin_output": data.get("plugin_output"),
+                    "long_plugin_output": data.get("long_plugin_output"),
+                },
+                # Downtime/comment info
+                "downtime_comment_info": {
+                    "comments_with_extra_info": data.get("comments_with_extra_info"),
+                    "downtimes_with_extra_info": data.get("downtimes_with_extra_info"),
+                    "pending_flex_downtime": data.get("pending_flex_downtime"),
+                    "scheduled_downtime_depth": data.get("scheduled_downtime_depth"),
+                },
+                # Custom data
+                "custom_data": {
+                    "custom_variable_names": data.get("custom_variable_names"),
+                    "custom_variable_values": data.get("custom_variable_values"),
+                    "custom_variables": data.get("custom_variables"),
+                    "host_tags": data.get("host_tags"),
+                    "labels": data.get("labels"),
+                    "tags": data.get("tags"),
+                },
+                # Notes info
+                "notes_info": {
+                    "notes": data.get("notes"),
+                    "notes_expanded": data.get("notes_expanded"),
+                    "notes_url": data.get("notes_url"),
+                    "notes_url_expanded": data.get("notes_url_expanded"),
+                },
+                # System info
+                "system_info": {
+                    "mk_inventory": data.get("mk_inventory"),
+                    "mk_inventory_gz": data.get("mk_inventory_gz"),
+                    "mk_inventory_last": data.get("mk_inventory_last"),
+                    "mk_logwatch_files": data.get("mk_logwatch_files"),
+                    "modified_attributes": data.get("modified_attributes"),
+                    "modified_attributes_list": data.get("modified_attributes_list"),
+                    "obsess_over_host": data.get("obsess_over_host"),
+                    "parents": data.get("parents"),
+                    "smartping_timeout": data.get("smartping_timeout"),
+                },
+                "acknowledgement_info": {
+                    "acknowledgement_type": data.get("acknowledgement_type"),
+                    "acknowledged": data.get("acknowledged"),
+                },
+            }
+        # Already in nested format
+        return data
 
 
 class Service(BaseModel):
@@ -139,7 +207,7 @@ class Service(BaseModel):
 
     @property
     def comments(self) -> List[Comment] | None:
-        return self._ext.comments_with_extra_info
+        return self._ext.downtime_comment_info.comments_with_extra_info
 
     @property
     def description(self) -> str:
@@ -147,51 +215,15 @@ class Service(BaseModel):
 
     @property
     def acknowledged(self) -> bool:
-        return self._ext.acknowledged
+        return self._ext.acknowledgement_info.acknowledged
 
     @property
     def acknowledgement_type(self) -> int:
-        return self._ext.acknowledgement_type
+        return self._ext.acknowledgement_info.acknowledgement_type
 
     @property
     def last_check(self) -> datetime:
-        return self._ext.last_check
-
-    @property
-    def check_command(self) -> str:
-        return self._ext.check_command
-
-    @property
-    def check_command_expanded(self) -> str:
-        return self._ext.check_command_expanded
-
-    @property
-    def check_flapping_recovery_notification(self) -> int:
-        return self._ext.check_flapping_recovery_notification
-
-    @property
-    def check_freshness(self) -> int:
-        return self._ext.check_freshness
-
-    @property
-    def check_interval(self) -> float:
-        return self._ext.check_interval
-
-    @property
-    def check_options(self) -> int:
-        return self._ext.check_options
-
-    @property
-    def check_period(self) -> str:
-        return self._ext.check_period
-
-    @property
-    def check_type(self) -> int:
-        return self._ext.check_type
-
-    @property
-    def checks_enabled(self) -> bool:
-        return bool(self._ext.checks_enabled)
+        return self._ext.check_info.last_check
 
     @property
     def host_name(self) -> str:
@@ -199,7 +231,7 @@ class Service(BaseModel):
 
     @property
     def state(self) -> Enum:
-        return ServiceStates(self._ext.state)
+        return ServiceStates(self._ext.state_history.state)
 
     @property
     def problem(self) -> bool:
@@ -207,15 +239,15 @@ class Service(BaseModel):
 
     @property
     def custom_variables(self) -> dict[str, str] | None:
-        return self._ext.custom_variables
+        return self._ext.custom_data.custom_variables
 
     @property
     def tags(self) -> dict[str, str] | None:
-        return self._ext.tags
+        return self._ext.custom_data.tags
 
     @property
     def host_tags(self) -> dict[str, str] | None:
-        return self._ext.host_tags
+        return self._ext.custom_data.host_tags
 
     async def acknowledge(
         self, comment: str, sticky: bool = True, persistent: bool = False, notify: bool = True
@@ -235,7 +267,7 @@ class Service(BaseModel):
         if not self.problem:
             raise ServiceNoProblemError(service_description=self.description)
 
-        data = ServiceAcknowledgement(
+        data = ServiceAcknowledgementRequest(
             host_name=self.host_name,
             service_description=self.description,
             comment=comment,
@@ -268,3 +300,27 @@ class Service(BaseModel):
     ) -> None: ...
 
     async def remove_acknowledgement(self) -> None: ...
+
+
+def get_service_columns(models: List[BaseModel]) -> list[str]:
+    """
+    Returns the list of columns to request from the Checkmk API for service queries.
+
+    Extracts field names from all service model classes to ensure we request
+    all necessary data from the API.
+    """
+    columns = set()
+    defaults = dict(
+        fields=("host_name", "description", "state", "acknowledged", "acknowledgement_type"),
+    )
+
+    # Core fields from ServiceExtensions
+    # columns.update(["host_name", "description", "state", "acknowledged", "acknowledgement_type"])
+
+    # Fields from nested models
+    columns.update(defaults["fields"])
+    for model in models:
+        columns.update(model.__pydantic_fields__.keys())
+    print(columns)
+
+    return sorted(columns)
