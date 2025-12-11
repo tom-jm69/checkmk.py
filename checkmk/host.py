@@ -57,6 +57,7 @@ class HostExtensions(BaseModel):
     """Host extensions with organized nested data models."""
 
     # Grouped nested models
+    name: str
     check_info: CheckInfo
     state_history: StateHistory
     flapping_info: FlappingInfo
@@ -77,7 +78,7 @@ class HostExtensions(BaseModel):
             # This is a flat structure from the API, organize it
             return {
                 # Core fields
-                "host_name": data.get("host_name"),
+                "name": data.get("name"),
                 # Check info
                 "check_info": {
                     "check_command": data.get("check_command"),
@@ -202,8 +203,12 @@ class Host(BaseModel):
         return bool(self._ext.acknowledgement_info.acknowledged)
 
     @property
+    def host_name(self) -> str:
+        return self._ext.name
+
+    @property
     def name(self) -> str:
-        return self._ext.host_name
+        return self._ext.name
 
     @property
     def state(self) -> Enum:
@@ -235,13 +240,13 @@ class Host(BaseModel):
         """
 
         if self.acknowledged:
-            raise HostProblemAlreadyAcknowledgedError(host_name=self._ext.host_name)
+            raise HostProblemAlreadyAcknowledgedError(host_name=self.host_name)
 
         if not self.problem:
-            raise HostNoProblemError(host_name=self._ext.host_name)
+            raise HostNoProblemError(host_name=self.host_name)
 
         data = HostAcknowledgement(
-            host_name=self._ext.host_name,
+            host_name=self.host_name,
             comment=comment,
             sticky=sticky,
             persistent=persistent,
@@ -258,7 +263,7 @@ class Host(BaseModel):
             comment: The comment
             persistent: Whether the acknowledgement persists across restarts
         """
-        data = HostComment(host_name=self._ext.host_name, comment=comment, persistent=persistent)
+        data = HostComment(host_name=self.host_name, comment=comment, persistent=persistent)
         await self._state.http.add_host_comment(data)
         return data
 

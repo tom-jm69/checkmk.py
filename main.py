@@ -12,9 +12,10 @@ async def main() -> None:
         verify_ssl=False,
     ) as client:
         hosts = [host for host in await client.get_hosts()]
-        # services = [service for service in await client.get_services()]
         for host in hosts:
-            print(host.model_dump_json())
+            print(host)
+            for service in await host.get_services():
+                print(service)
 
 
 if __name__ == "__main__":
