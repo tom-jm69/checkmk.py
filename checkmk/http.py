@@ -183,19 +183,15 @@ class HTTPClient:
                                 raise TooManyRequests(response, data)
 
                         if response.status == 401:
-                            # Unauthorized
                             raise Unauthorized(response, data)
 
                         if response.status == 403:
-                            # Forbidden
                             raise Forbidden(response, data)
 
                         if response.status == 404:
-                            # NotFound
                             raise NotFound(response, data)
 
                         if response.status in {500, 502, 504, 503, 524}:
-                            # ServerError
                             if attempt < max_retries - 1:
                                 backoff = 2**attempt  # 1s, 2s, 4s
                                 _log.warning(

@@ -55,11 +55,9 @@ if TYPE_CHECKING:
 class ServiceExtensions(BaseModel):
     """Service extensions with organized nested data models."""
 
-    # Core fields (kept at top level for easy access)
     host_name: str
     description: str
 
-    # Grouped nested models
     check_info: CheckInfo
     state_history: StateHistory
     flapping_info: FlappingInfo
@@ -77,12 +75,9 @@ class ServiceExtensions(BaseModel):
     def organize_flat_data(cls, data: dict) -> dict:
         """Transform flat API response into nested structure."""
         if isinstance(data, dict) and "check_info" not in data:
-            # This is a flat structure from the API, organize it
             return {
-                # Core fields
                 "host_name": data.get("host_name"),
                 "description": data.get("description"),
-                # Check info
                 "check_info": {
                     "check_command": data.get("check_command"),
                     "check_command_expanded": data.get("check_command_expanded"),
@@ -102,14 +97,12 @@ class ServiceExtensions(BaseModel):
                     "next_check": data.get("next_check"),
                     "retry_interval": data.get("retry_interval"),
                 },
-                # State history
                 "state_history": {
                     "state": data.get("state"),
                     "last_state": data.get("last_state"),
                     "last_state_change": data.get("last_state_change"),
                     "previous_hard_state": data.get("previous_hard_state"),
                 },
-                # Flapping info
                 "flapping_info": {
                     "is_flapping": data.get("is_flapping"),
                     "flap_detection_enabled": data.get("flap_detection_enabled"),
@@ -117,7 +110,6 @@ class ServiceExtensions(BaseModel):
                     "low_flap_threshold": data.get("low_flap_threshold"),
                     "percent_state_change": data.get("percent_state_change"),
                 },
-                # Notification info
                 "notification_info": {
                     "first_notification_delay": data.get("first_notification_delay"),
                     "next_notification": data.get("next_notification"),
@@ -129,7 +121,6 @@ class ServiceExtensions(BaseModel):
                     ),
                     "notifications_enabled": data.get("notifications_enabled"),
                 },
-                # Performance info
                 "performance_info": {
                     "execution_time": data.get("execution_time"),
                     "latency": data.get("latency"),
@@ -139,19 +130,16 @@ class ServiceExtensions(BaseModel):
                     "pnpgraph_present": data.get("pnpgraph_present"),
                     "process_performance_data": data.get("process_performance_data"),
                 },
-                # Output info
                 "output_info": {
                     "plugin_output": data.get("plugin_output"),
                     "long_plugin_output": data.get("long_plugin_output"),
                 },
-                # Downtime/comment info
                 "downtime_comment_info": {
                     "comments_with_extra_info": data.get("comments_with_extra_info"),
                     "downtimes_with_extra_info": data.get("downtimes_with_extra_info"),
                     "pending_flex_downtime": data.get("pending_flex_downtime"),
                     "scheduled_downtime_depth": data.get("scheduled_downtime_depth"),
                 },
-                # Custom data
                 "custom_data": {
                     "custom_variable_names": data.get("custom_variable_names"),
                     "custom_variable_values": data.get("custom_variable_values"),
@@ -160,14 +148,12 @@ class ServiceExtensions(BaseModel):
                     "labels": data.get("labels"),
                     "tags": data.get("tags"),
                 },
-                # Notes info
                 "notes_info": {
                     "notes": data.get("notes"),
                     "notes_expanded": data.get("notes_expanded"),
                     "notes_url": data.get("notes_url"),
                     "notes_url_expanded": data.get("notes_url_expanded"),
                 },
-                # System info
                 "system_info": {
                     "mk_inventory": data.get("mk_inventory"),
                     "mk_inventory_gz": data.get("mk_inventory_gz"),
@@ -184,7 +170,6 @@ class ServiceExtensions(BaseModel):
                     "acknowledged": data.get("acknowledged"),
                 },
             }
-        # Already in nested format
         return data
 
 
@@ -300,27 +285,3 @@ class Service(BaseModel):
     ) -> None: ...
 
     async def remove_acknowledgement(self) -> None: ...
-
-
-def get_service_columns(models: List[BaseModel]) -> list[str]:
-    """
-    Returns the list of columns to request from the Checkmk API for service queries.
-
-    Extracts field names from all service model classes to ensure we request
-    all necessary data from the API.
-    """
-    columns = set()
-    defaults = dict(
-        fields=("host_name", "description", "state", "acknowledged", "acknowledgement_type"),
-    )
-
-    # Core fields from ServiceExtensions
-    # columns.update(["host_name", "description", "state", "acknowledged", "acknowledgement_type"])
-
-    # Fields from nested models
-    columns.update(defaults["fields"])
-    for model in models:
-        columns.update(model.__pydantic_fields__.keys())
-    print(columns)
-
-    return sorted(columns)

@@ -56,7 +56,6 @@ if TYPE_CHECKING:
 class HostExtensions(BaseModel):
     """Host extensions with organized nested data models."""
 
-    # Grouped nested models
     name: str
     check_info: CheckInfo
     state_history: StateHistory
@@ -75,11 +74,8 @@ class HostExtensions(BaseModel):
     def organize_flat_data(cls, data: dict) -> dict:
         """Transform flat API response into nested structure."""
         if isinstance(data, dict) and "check_info" not in data:
-            # This is a flat structure from the API, organize it
             return {
-                # Core fields
                 "name": data.get("name"),
-                # Check info
                 "check_info": {
                     "check_command": data.get("check_command"),
                     "check_command_expanded": data.get("check_command_expanded"),
@@ -99,14 +95,12 @@ class HostExtensions(BaseModel):
                     "next_check": data.get("next_check"),
                     "retry_interval": data.get("retry_interval"),
                 },
-                # State history
                 "state_history": {
                     "state": data.get("state"),
                     "last_state": data.get("last_state"),
                     "last_state_change": data.get("last_state_change"),
                     "previous_hard_state": data.get("previous_hard_state"),
                 },
-                # Flapping info
                 "flapping_info": {
                     "is_flapping": data.get("is_flapping"),
                     "flap_detection_enabled": data.get("flap_detection_enabled"),
@@ -114,7 +108,6 @@ class HostExtensions(BaseModel):
                     "low_flap_threshold": data.get("low_flap_threshold"),
                     "percent_state_change": data.get("percent_state_change"),
                 },
-                # Notification info
                 "notification_info": {
                     "first_notification_delay": data.get("first_notification_delay"),
                     "next_notification": data.get("next_notification"),
@@ -126,7 +119,6 @@ class HostExtensions(BaseModel):
                     ),
                     "notifications_enabled": data.get("notifications_enabled"),
                 },
-                # Performance info
                 "performance_info": {
                     "execution_time": data.get("execution_time"),
                     "latency": data.get("latency"),
@@ -136,19 +128,16 @@ class HostExtensions(BaseModel):
                     "pnpgraph_present": data.get("pnpgraph_present"),
                     "process_performance_data": data.get("process_performance_data"),
                 },
-                # Output info
                 "output_info": {
                     "plugin_output": data.get("plugin_output"),
                     "long_plugin_output": data.get("long_plugin_output"),
                 },
-                # Downtime/comment info
                 "downtime_comment_info": {
                     "comments_with_extra_info": data.get("comments_with_extra_info"),
                     "downtimes_with_extra_info": data.get("downtimes_with_extra_info"),
                     "pending_flex_downtime": data.get("pending_flex_downtime"),
                     "scheduled_downtime_depth": data.get("scheduled_downtime_depth"),
                 },
-                # Custom data
                 "custom_data": {
                     "custom_variable_names": data.get("custom_variable_names"),
                     "custom_variable_values": data.get("custom_variable_values"),
@@ -156,14 +145,12 @@ class HostExtensions(BaseModel):
                     "labels": data.get("labels"),
                     "tags": data.get("tags"),
                 },
-                # Notes info
                 "notes_info": {
                     "notes": data.get("notes"),
                     "notes_expanded": data.get("notes_expanded"),
                     "notes_url": data.get("notes_url"),
                     "notes_url_expanded": data.get("notes_url_expanded"),
                 },
-                # System info
                 "system_info": {
                     "modified_attributes": data.get("modified_attributes"),
                     "modified_attributes_list": data.get("modified_attributes_list"),
@@ -173,7 +160,6 @@ class HostExtensions(BaseModel):
                     "acknowledged": data.get("acknowledged"),
                 },
             }
-        # Already in nested format
         return data
 
 
