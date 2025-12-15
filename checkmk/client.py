@@ -111,7 +111,7 @@ class Client:
         await self.http.close()
 
     async def get_services(self) -> List[Service]:
-        """
+        """*coroutine*
         Fetch and deserialize all services from the Checkmk API.
 
         Returns:

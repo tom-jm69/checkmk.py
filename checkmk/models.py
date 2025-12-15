@@ -282,7 +282,7 @@ class CheckmkServiceColumns(BaseModel):
         all necessary data from the API.
 
         Args:
-            include_core_fields: Whether to include core service fields (host_name, description, etc.)
+            additional_fields: Include additional fields 
 
         Returns:
             Sorted list of column names
@@ -324,7 +324,7 @@ class CheckmkHostColumns(BaseModel):
         all necessary data from the API.
 
         Args:
-            include_core_fields: Whether to include core service fields (host_name, description, etc.)
+            additional_fields: Include additional fields 
 
         Returns:
             Sorted list of column names
