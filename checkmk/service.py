@@ -24,7 +24,7 @@ SOFTWARE.
 
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
@@ -47,9 +47,7 @@ from .models import (
     StateHistory,
     SystemInfo,
 )
-
-if TYPE_CHECKING:
-    from .state import ConnectionState
+from .state import ConnectionState
 
 
 class ServiceExtensions(BaseModel):
