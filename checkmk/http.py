@@ -54,7 +54,8 @@ from .exceptions import (
 )
 from .models import (
     APIAuth,
-    CheckmkColumns,
+    CheckmkHostColumns,
+    CheckmkServiceColumns,
     ColumnsRequest,
     HostAcknowledgement,
     HostComment,
@@ -239,7 +240,7 @@ class CheckmkHTTP:
         await self.client.close()
 
     async def get_service(self, host_name: str, service_description: str) -> Dict[str, Any]:
-        columns_request_data = CheckmkColumns.get_columns()
+        columns_request_data = CheckmkServiceColumns.get_columns()
 
         params = {
             "service_description": service_description,
@@ -257,7 +258,7 @@ class CheckmkHTTP:
         return response
 
     async def get_services(self, host_name: Optional[str] = None) -> Dict[str, Any]:
-        columns_request_data = CheckmkColumns.get_columns()
+        columns_request_data = CheckmkServiceColumns.get_columns()
 
         data = ColumnsRequest(columns=columns_request_data).model_dump_json()
 
@@ -291,7 +292,7 @@ class CheckmkHTTP:
         self.client.auth = APIAuth(username=self.username, secret=self.secret)
 
     async def get_hosts(self) -> Dict[str, Any]:
-        columns_request_data = CheckmkColumns.get_columns(["name"])
+        columns_request_data = CheckmkHostColumns.get_columns(["name"])
 
         data = ColumnsRequest(columns=columns_request_data).model_dump_json()
 

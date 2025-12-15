@@ -29,9 +29,15 @@ class HostStates(IntEnum):
     UP = 0
     DOWN = 1
 
+    def __str__(self) -> str:
+        return self.name
+
 
 class ServiceStates(IntEnum):
     OK = 0
     WARNING = 1
     WARN = 1
     CRITICAL = 2
+
+    def __str__(self) -> str:
+        return self.name

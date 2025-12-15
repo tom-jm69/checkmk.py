@@ -11,8 +11,7 @@ async def main() -> None:
         port=5000,
         verify_ssl=False,
     ) as client:
-        hosts = [host for host in await client.get_hosts()]
-        for host in hosts:
+        for host in await client.get_hosts():
             print(host)
             for service in await host.get_services():
                 print(service)

@@ -216,6 +216,7 @@ class CustomServiceData(BaseModel):
     labels: Optional[Dict[str, str]] = None
     tags: Optional[Dict[str, str]] = None
 
+
 class CustomHostData(BaseModel):
     """Custom variables, tags, and labels."""
 
@@ -259,7 +260,7 @@ class PerformanceInfo(BaseModel):
     process_performance_data: Optional[int] = None
 
 
-class CheckmkColumns(BaseModel):
+class CheckmkServiceColumns(BaseModel):
     check_info: CheckInfo
     state_history: StateHistory
     flapping_info: FlappingInfo
@@ -267,7 +268,49 @@ class CheckmkColumns(BaseModel):
     performance_info: PerformanceInfo
     output_info: PluginOutputInfo
     downtime_comment_info: DowntimeCommentInfo
-    #custom_data: CustomData
+    custom_data: CustomServiceData
+    notes_info: NotesInfo
+    system_info: SystemInfo
+    acknowledgement_info: Acknowledgement
+
+    @classmethod
+    def get_columns(cls, additional_fields: Optional[List[str]] = None) -> List[str]:
+        """
+        Returns the list of columns to request from the Checkmk API.
+
+        Extracts field names from all nested model classes to ensure we request
+        all necessary data from the API.
+
+        Args:
+            include_core_fields: Whether to include core service fields (host_name, description, etc.)
+
+        Returns:
+            Sorted list of column names
+        """
+        columns = set()
+
+        if additional_fields:
+            # Core fields for service queries
+            columns.update(additional_fields)
+
+        # Extract fields from all nested models
+        for field_name, field_info in cls.__pydantic_fields__.items():
+            model_class = field_info.annotation
+            if hasattr(model_class, "__pydantic_fields__"):
+                columns.update(model_class.__pydantic_fields__.keys())
+
+        return sorted(columns)
+
+
+class CheckmkHostColumns(BaseModel):
+    check_info: CheckInfo
+    state_history: StateHistory
+    flapping_info: FlappingInfo
+    notification_info: NotificationInfo
+    performance_info: PerformanceInfo
+    output_info: PluginOutputInfo
+    downtime_comment_info: DowntimeCommentInfo
+    custom_data: CustomHostData
     notes_info: NotesInfo
     system_info: SystemInfo
     acknowledgement_info: Acknowledgement
