@@ -37,7 +37,10 @@ To install using [uv](https://github.com/astral-sh/uv):
 
 ```bash
 # Install latest from main branch
-$ uv pip install git+https://github.com/tom-jm69/checkmk.py
+$ uv add "checkmk-py @ git+https://github.com/tom-jm69/checkmk.py"
+
+# Install specific tag
+$ uv add "checkmk-py @ git+https://github.com/tom-jm69/checkmk.py@0.1.0"
 ```
 
 ## Quick Example
