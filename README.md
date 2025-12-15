@@ -21,22 +21,23 @@ A modern async API wrapper for the Checkmk API written in Python.
 
 **Python 3.11 or higher is required**
 
-To install the library, you can just run the following command:
+### Install from Git
 
-```bash
-# Linux/macOS
-$ python3 -m pip install -U checkmk
-
-# Windows
-> py -3 -m pip install -U checkmk
-```
-
-To install the development version, do the following:
+You can install the latest version from the repository:
 
 ```bash
 $ git clone https://github.com/tom-jm69/checkmk.py
-$ cd checkmk
+$ cd checkmk.py
 $ python3 -m pip install -U .
+```
+
+### Install with uv
+
+To install using [uv](https://github.com/astral-sh/uv):
+
+```bash
+# Install latest from main branch
+$ uv pip install git+https://github.com/tom-jm69/checkmk.py
 ```
 
 ## Quick Example
