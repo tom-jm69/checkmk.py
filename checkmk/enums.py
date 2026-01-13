@@ -22,7 +22,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from enum import IntEnum
+from enum import Enum, IntEnum
 
 
 class HostStates(IntEnum):
@@ -41,3 +41,11 @@ class ServiceStates(IntEnum):
 
     def __str__(self) -> str:
         return self.name
+
+
+class NotificationTypes(Enum):
+    PROBLEM = "PROBLEM"
+    RECOVERY = "RECOVERY"
+    ACKNOWLEDGEMENT = "ACKNOWLEDGEMENT"
+    FLAPPINGSTART = "FLAPPINGSTART"
+    FLAPPINGSTOP = "FLAPPINGSTOP"
