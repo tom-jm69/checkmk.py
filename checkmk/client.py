@@ -23,7 +23,7 @@ SOFTWARE.
 """
 
 import logging
-from typing import List
+from typing import Sequence
 
 from .exceptions import HostParseError, ServiceParseError
 from .host import Host
@@ -110,7 +110,7 @@ class Client:
         """
         await self.http.close()
 
-    async def get_services(self) -> List[Service]:
+    async def get_services(self) -> Sequence[Service]:
         """*coroutine*
         Fetch and deserialize all services from the Checkmk API.
 
@@ -123,7 +123,8 @@ class Client:
         """
         services = await self.http.get_services()
 
-        parsed_services = []
+        parsed_services: list[Service] = []
+
         for service_data in services["value"]:
             try:
                 service = Service(**service_data)
@@ -139,7 +140,7 @@ class Client:
 
         return parsed_services
 
-    async def get_hosts(self) -> List[Host]:
+    async def get_hosts(self) -> Sequence[Host]:
         """
         Fetch and deserialize all hosts from the Checkmk API.
 
@@ -152,7 +153,8 @@ class Client:
         """
         hosts = await self.http.get_hosts()
 
-        parsed_hosts = []
+        parsed_hosts: list[Host] = []
+
         for host_data in hosts["value"]:
             try:
                 host = Host(**host_data)
