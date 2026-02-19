@@ -30,23 +30,11 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from .enums import HostStates
 from .exceptions import HostNoProblemError, HostProblemAlreadyAcknowledgedError
-from .models import (
-    Acknowledgement,
-    CheckInfo,
-    Comment,
-    CustomHostData,
-    DowntimeCommentInfo,
-    FlappingInfo,
-    HostAcknowledgement,
-    HostComment,
-    Link,
-    NotesInfo,
-    NotificationInfo,
-    PerformanceInfo,
-    PluginOutputInfo,
-    StateHistory,
-    SystemInfo,
-)
+from .models import (Acknowledgement, CheckInfo, Comment, CustomHostData,
+                     DowntimeCommentInfo, FlappingInfo, HostAcknowledgement,
+                     HostComment, Link, NotesInfo, NotificationInfo,
+                     PerformanceInfo, PluginOutputInfo, StateHistory,
+                     SystemInfo)
 from .state import ConnectionState
 
 if TYPE_CHECKING:
@@ -211,6 +199,18 @@ class Host(BaseModel):
     @property
     def tags(self) -> dict[str, str] | None:
         return self._ext.custom_data.tags
+
+    @property
+    def ipv4(self) -> str | None:
+        if self._ext.custom_data.custom_variables:
+            return self._ext.custom_data.custom_variables.get("ADDRESS_4")
+        return None
+
+    @property
+    def ipv6(self) -> str | None:
+        if self._ext.custom_data.custom_variables:
+            return self._ext.custom_data.custom_variables.get("ADDRESS_6")
+        return None
 
     async def acknowledge(
         self, comment: str, *, sticky: bool = True, persistent: bool = False, notify: bool = True

@@ -259,7 +259,6 @@ class PerformanceInfo(BaseModel):
     pnpgraph_present: Optional[int] = None
     process_performance_data: Optional[int] = None
 
-
 class CheckmkServiceColumns(BaseModel):
     check_info: CheckInfo
     state_history: StateHistory
@@ -282,7 +281,7 @@ class CheckmkServiceColumns(BaseModel):
         all necessary data from the API.
 
         Args:
-            additional_fields: Include additional fields 
+            additional_fields: Include additional fields
 
         Returns:
             Sorted list of column names
@@ -324,7 +323,7 @@ class CheckmkHostColumns(BaseModel):
         all necessary data from the API.
 
         Args:
-            additional_fields: Include additional fields 
+            additional_fields: Include additional fields
 
         Returns:
             Sorted list of column names
@@ -340,5 +339,4 @@ class CheckmkHostColumns(BaseModel):
             model_class = field_info.annotation
             if hasattr(model_class, "__pydantic_fields__"):
                 columns.update(model_class.__pydantic_fields__.keys())
-
         return sorted(columns)
