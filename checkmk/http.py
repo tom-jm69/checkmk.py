@@ -293,7 +293,6 @@ class CheckmkHTTP:
 
     async def get_hosts(self) -> Dict[str, Any]:
         columns_request_data = CheckmkHostColumns.get_columns(["name"])
-
         data = ColumnsRequest(columns=columns_request_data).model_dump_json()
 
         try:
