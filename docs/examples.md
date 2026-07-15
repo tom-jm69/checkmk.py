@@ -121,6 +121,62 @@ if __name__ == "__main__":
     asyncio.run(check_host_services("myhost"))
 ```
 
+## Group Examples
+
+### List Host and Service Groups with Their Worst State
+
+```python
+import asyncio
+from checkmk import Client, HostStates, ServiceStates
+
+async def list_groups():
+    async with Client(...) as client:
+        host_groups = await client.get_host_groups()
+        print(f"Found {len(host_groups)} host groups:")
+        for group in host_groups:
+            flag = "⚠️" if group.worst_host_state != HostStates.UP else "✓"
+            print(f"  {flag} {group.name}: {group.num_hosts} hosts")
+
+        service_groups = await client.get_service_groups()
+        print(f"\nFound {len(service_groups)} service groups:")
+        for group in service_groups:
+            flag = "⚠️" if group.worst_service_state != ServiceStates.OK else "✓"
+            print(f"  {flag} {group.name}: {group.num_services} services")
+
+if __name__ == "__main__":
+    asyncio.run(list_groups())
+```
+
+### Find Which Groups a Host or Service Belongs To
+
+```python
+import asyncio
+from checkmk import Client
+
+async def check_membership(host_name: str):
+    async with Client(...) as client:
+        hosts = await client.get_hosts()
+        host = next((h for h in hosts if h.name == host_name), None)
+        if not host:
+            print(f"Host {host_name} not found")
+            return
+
+        groups = await host.get_groups()
+        print(f"{host.name} belongs to {len(groups)} host group(s):")
+        for group in groups:
+            print(f"  {group.name} ({group.alias})")
+
+        for service in await host.get_services():
+            service_groups = await service.get_groups()
+            if service_groups:
+                print(f"\n{service.description} belongs to:")
+                for group in service_groups:
+                    print(f"  {group.name} ({group.alias})")
+
+if __name__ == "__main__":
+    asyncio.run(check_membership("myhost"))
+```
+
 ## Acknowledgement Examples
 
 ### Acknowledge All Unacknowledged Host Problems

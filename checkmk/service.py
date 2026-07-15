@@ -24,7 +24,7 @@ SOFTWARE.
 
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
@@ -37,6 +37,7 @@ from .models import (
     CustomServiceData,
     DowntimeCommentInfo,
     FlappingInfo,
+    Group,
     Link,
     NotesInfo,
     NotificationInfo,
@@ -48,6 +49,9 @@ from .models import (
     SystemInfo,
 )
 from .state import ConnectionState
+
+if TYPE_CHECKING:
+    from .service_group import ServiceGroup
 
 
 class ServiceExtensions(BaseModel):
@@ -67,6 +71,7 @@ class ServiceExtensions(BaseModel):
     notes_info: NotesInfo
     system_info: SystemInfo
     acknowledgement_info: Acknowledgement
+    groups: Group
 
     @model_validator(mode="before")
     @classmethod
@@ -167,6 +172,9 @@ class ServiceExtensions(BaseModel):
                     "acknowledgement_type": data.get("acknowledgement_type"),
                     "acknowledged": data.get("acknowledged"),
                 },
+                "groups": {
+                    "groups": data.get("groups"),
+                },
             }
         return data
 
@@ -231,6 +239,30 @@ class Service(BaseModel):
     @property
     def host_tags(self) -> dict[str, str] | None:
         return self._ext.custom_data.host_tags
+
+    @property
+    def groups(self) -> list[str] | None:
+        """The service groups this service is a member of."""
+        return self._ext.groups.groups if self._ext.groups else None
+
+    async def get_groups(self) -> List["ServiceGroup"]:
+        """
+        Fetch all service groups this service is a member of.
+
+        Returns:
+            List[ServiceGroup]: List of ServiceGroup objects for this service's groups.
+        """
+        from .service_group import ServiceGroup
+
+        groups: List[ServiceGroup] = []
+
+        for group_name in self.groups or []:
+            group_data = await self._state.http.get_service_group(group_name)
+            group = ServiceGroup(**group_data)
+            group._state = self._state
+            groups.append(group)
+
+        return groups
 
     async def acknowledge(
         self, comment: str, sticky: bool = True, persistent: bool = False, notify: bool = True

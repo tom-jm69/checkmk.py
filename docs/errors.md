@@ -8,10 +8,14 @@ The library provides a comprehensive exception hierarchy for different types of 
 CheckmkException (Base)
 ├── FetchError
 │   ├── HostFetchError
-│   └── ServiceFetchError
+│   ├── ServiceFetchError
+│   ├── HostGroupFetchError
+│   └── ServiceGroupFetchError
 ├── ParseError
 │   ├── HostParseError
-│   └── ServiceParseError
+│   ├── ServiceParseError
+│   ├── HostGroupParseError
+│   └── ServiceGroupParseError
 ├── ProblemAcknowledgementError
 │   ├── HostNoProblemError
 │   ├── HostProblemAlreadyAcknowledgedError
@@ -34,8 +38,12 @@ from checkmk import (
     ServiceException,           # Base service exception
     HostFetchError,             # Error fetching hosts
     ServiceFetchError,          # Error fetching services
+    HostGroupFetchError,        # Error fetching host groups
+    ServiceGroupFetchError,     # Error fetching service groups
     HostParseError,             # Error parsing host data
     ServiceParseError,          # Error parsing service data
+    HostGroupParseError,        # Error parsing host group data
+    ServiceGroupParseError,     # Error parsing service group data
     HostNoProblemError,         # Host has no problem to acknowledge
     ServiceNoProblemError,      # Service has no problem to acknowledge
     HostProblemAlreadyAcknowledgedError,

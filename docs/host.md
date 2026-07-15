@@ -96,6 +96,17 @@ if host.tags:
         print(f"{key}: {value}")
 ```
 
+### groups
+**Type:** `list[str] | None`
+
+List of host group names this host is a member of.
+
+```python
+if host.groups:
+    for group_name in host.groups:
+        print(group_name)
+```
+
 ## Methods
 
 ### acknowledge()
@@ -175,6 +186,23 @@ services = await host.get_services()
 services = await host.get_services()
 for service in services:
     print(f"  {service.description}: {service.state}")
+```
+
+### get_groups()
+
+Fetch the [`HostGroup`](host_group.md) objects this host is a member of.
+
+```python
+groups = await host.get_groups()
+```
+
+**Returns:** `List[HostGroup]`
+
+**Example:**
+```python
+groups = await host.get_groups()
+for group in groups:
+    print(f"  {group.name}: {group.num_hosts} hosts")
 ```
 
 ## Complete Example

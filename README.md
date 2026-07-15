@@ -13,7 +13,7 @@ A modern async API wrapper for the Checkmk API written in Python.
 - **Async/await support** - Built with asyncio for concurrent operations
 - **Type hints** - Full type annotations for better IDE support
 - **Pydantic models** - Structured data models with validation
-- **Comprehensive API** - Access hosts, services, comments, acknowledgements
+- **Comprehensive API** - Access hosts, services, host/service groups, comments, acknowledgements
 - **Error handling** - Rich exception hierarchy for better error handling
 - **Automatic retries** - Built-in retry logic with exponential backoff
 
@@ -78,6 +78,8 @@ Detailed documentation is available in the [docs](docs/) folder:
 - **[Client](docs/client.md)** - Client initialization and configuration
 - **[Host](docs/host.md)** - Working with hosts, properties, and methods
 - **[Service](docs/service.md)** - Working with services, properties, and methods
+- **[HostGroup](docs/host_group.md)** - Working with host groups, properties, and methods
+- **[ServiceGroup](docs/service_group.md)** - Working with service groups, properties, and methods
 - **[Error Handling](docs/errors.md)** - Exception hierarchy and error handling
 - **[Examples](docs/examples.md)** - Practical examples for common use cases
 
@@ -87,6 +89,8 @@ Detailed documentation is available in the [docs](docs/) folder:
 - [Client Setup](docs/client.md#initialization)
 - [Fetching Hosts](docs/host.md#getting-hosts)
 - [Fetching Services](docs/service.md#getting-services)
+- [Fetching Host Groups](docs/host_group.md#getting-host-groups)
+- [Fetching Service Groups](docs/service_group.md#getting-service-groups)
 
 ### Common Tasks
 - [Acknowledge Problems](docs/host.md#acknowledge)
@@ -130,6 +134,26 @@ for service in services:
 ```
 
 See [Service Documentation](docs/service.md) for more details.
+
+### Working with Groups
+
+```python
+# Get all host groups
+host_groups = await client.get_host_groups()
+for group in host_groups:
+    print(f"{group.name}: {group.num_hosts} hosts, worst state {group.worst_host_state}")
+
+# Get all service groups
+service_groups = await client.get_service_groups()
+for group in service_groups:
+    print(f"{group.name}: {group.num_services} services, worst state {group.worst_service_state}")
+
+# Get the groups a specific host or service belongs to
+host_groups_of_host = await host.get_groups()
+service_groups_of_service = await service.get_groups()
+```
+
+See [HostGroup Documentation](docs/host_group.md) and [ServiceGroup Documentation](docs/service_group.md) for more details.
 
 ### Error Handling
 

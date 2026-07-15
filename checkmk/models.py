@@ -23,7 +23,7 @@ SOFTWARE.
 """
 
 from datetime import datetime
-from typing import Dict, List, Literal, Optional
+from typing import Dict, Literal, Optional
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 
@@ -65,7 +65,7 @@ class Link(BaseModel):
 class ColumnsRequest(BaseModel):
     """Request model for columns query"""
 
-    columns: List[str]
+    columns: list[str]
 
 
 class HostComment(BaseModel):
@@ -108,6 +108,10 @@ class ServiceAcknowledgementRequest(BaseModel):
     notify: bool = True
     comment: str
     acknowledge_type: Literal["service"] = "service"
+
+
+class Group(BaseModel):
+    groups: list[str]
 
 
 class Comment(BaseModel):
@@ -194,7 +198,7 @@ class SystemInfo(BaseModel):
     """Advanced CheckMK system fields."""
 
     modified_attributes: Optional[int] = None
-    modified_attributes_list: Optional[List[str]] = None
+    modified_attributes_list: Optional[list[str]] = None
 
 
 class NotesInfo(BaseModel):
@@ -209,8 +213,8 @@ class NotesInfo(BaseModel):
 class CustomServiceData(BaseModel):
     """Custom variables, tags, and labels."""
 
-    custom_variable_names: Optional[List] = None
-    custom_variable_values: Optional[List] = None
+    custom_variable_names: Optional[list] = None
+    custom_variable_values: Optional[list] = None
     custom_variables: Optional[Dict] = None
     host_tags: Optional[Dict[str, str]] = None
     labels: Optional[Dict[str, str]] = None
@@ -220,8 +224,8 @@ class CustomServiceData(BaseModel):
 class CustomHostData(BaseModel):
     """Custom variables, tags, and labels."""
 
-    custom_variable_names: Optional[List] = None
-    custom_variable_values: Optional[List] = None
+    custom_variable_names: Optional[list] = None
+    custom_variable_values: Optional[list] = None
     custom_variables: Optional[Dict] = None
     labels: Optional[Dict[str, str]] = None
     tags: Optional[Dict[str, str]] = None
@@ -230,8 +234,8 @@ class CustomHostData(BaseModel):
 class DowntimeCommentInfo(BaseModel):
     """Downtime and comment tracking."""
 
-    comments_with_extra_info: Optional[List[Comment]] = None
-    downtimes_with_extra_info: Optional[List] = None
+    comments_with_extra_info: Optional[list[Comment]] = None
+    downtimes_with_extra_info: Optional[list] = None
     pending_flex_downtime: Optional[int] = None
     scheduled_downtime_depth: Optional[int] = None
 
@@ -253,11 +257,12 @@ class PerformanceInfo(BaseModel):
 
     execution_time: Optional[float] = None
     latency: Optional[float] = None
-    metrics: Optional[List] = None
+    metrics: Optional[list] = None
     perf_data: Optional[str] = None
     performance_data: Optional[Dict[str, float]] = None
     pnpgraph_present: Optional[int] = None
     process_performance_data: Optional[int] = None
+
 
 class CheckmkServiceColumns(BaseModel):
     check_info: CheckInfo
@@ -271,9 +276,10 @@ class CheckmkServiceColumns(BaseModel):
     notes_info: NotesInfo
     system_info: SystemInfo
     acknowledgement_info: Acknowledgement
+    groups: Group
 
     @classmethod
-    def get_columns(cls, additional_fields: Optional[List[str]] = None) -> List[str]:
+    def get_columns(cls, additional_fields: Optional[list[str]] = None) -> list[str]:
         """
         Returns the list of columns to request from the Checkmk API.
 
@@ -301,6 +307,161 @@ class CheckmkServiceColumns(BaseModel):
         return sorted(columns)
 
 
+class HostMemberState(BaseModel):
+    """A host group member together with its state and check status."""
+
+    host_name: str
+    state: int
+    has_been_checked: bool
+
+    @classmethod
+    def parse(cls, row: list) -> "HostMemberState":
+        """
+        Parse a single raw row:
+        [host_name, state, has_been_checked]
+        """
+        return cls(
+            host_name=row[0],
+            state=row[1],
+            has_been_checked=bool(row[2]),
+        )
+
+
+class ServiceMember(BaseModel):
+    """A service group member identified by its host/service pair."""
+
+    host_name: str
+    service_description: str
+
+    @classmethod
+    def parse(cls, row: list) -> "ServiceMember":
+        """
+        Parse a single raw row:
+        [host_name, service_description]
+        """
+        return cls(host_name=row[0], service_description=row[1])
+
+
+class ServiceMemberState(BaseModel):
+    """A service group member together with its state and check status."""
+
+    host_name: str
+    service_description: str
+    state: int
+    has_been_checked: bool
+
+    @classmethod
+    def parse(cls, row: list) -> "ServiceMemberState":
+        """
+        Parse a single raw row:
+        [host_name, service_description, state, has_been_checked]
+        """
+        return cls(
+            host_name=row[0],
+            service_description=row[1],
+            state=row[2],
+            has_been_checked=bool(row[3]),
+        )
+
+
+def normalize_host_members_with_state(v):
+    if v is None:
+        return v
+    if isinstance(v, list) and v and isinstance(v[0], HostMemberState):
+        return v
+    return [HostMemberState.parse(row) for row in v]
+
+
+def normalize_service_members(v):
+    if v is None:
+        return v
+    if isinstance(v, list) and v and isinstance(v[0], ServiceMember):
+        return v
+    return [ServiceMember.parse(row) for row in v]
+
+
+def normalize_service_members_with_state(v):
+    if v is None:
+        return v
+    if isinstance(v, list) and v and isinstance(v[0], ServiceMemberState):
+        return v
+    return [ServiceMemberState.parse(row) for row in v]
+
+
+class HostGroupExtensions(BaseModel):
+    """Extensions for a host group, matching the Checkmk Hostgroups Table."""
+
+    name: str
+    alias: str
+    action_url: Optional[str] = None
+    notes: Optional[str] = None
+    notes_url: Optional[str] = None
+    members: Optional[list[str]] = None
+    members_with_state: Optional[list[HostMemberState]] = None
+    num_hosts: Optional[int] = None
+    num_hosts_down: Optional[int] = None
+    num_hosts_handled_problems: Optional[int] = None
+    num_hosts_pending: Optional[int] = None
+    num_hosts_unhandled_problems: Optional[int] = None
+    num_hosts_unreach: Optional[int] = None
+    num_hosts_up: Optional[int] = None
+    num_services: Optional[int] = None
+    num_services_crit: Optional[int] = None
+    num_services_handled_problems: Optional[int] = None
+    num_services_hard_crit: Optional[int] = None
+    num_services_hard_ok: Optional[int] = None
+    num_services_hard_unknown: Optional[int] = None
+    num_services_hard_warn: Optional[int] = None
+    num_services_ok: Optional[int] = None
+    num_services_pending: Optional[int] = None
+    num_services_unhandled_problems: Optional[int] = None
+    num_services_unknown: Optional[int] = None
+    num_services_warn: Optional[int] = None
+    worst_host_state: Optional[int] = None
+    worst_service_hard_state: Optional[int] = None
+    worst_service_state: Optional[int] = None
+
+    @field_validator("members_with_state", mode="before")
+    @classmethod
+    def parse_members_with_state(cls, v):
+        return normalize_host_members_with_state(v)
+
+
+class ServiceGroupExtensions(BaseModel):
+    """Extensions for a service group, matching the Checkmk Servicegroups Table."""
+
+    name: str
+    alias: str
+    action_url: Optional[str] = None
+    notes: Optional[str] = None
+    notes_url: Optional[str] = None
+    members: Optional[list[ServiceMember]] = None
+    members_with_state: Optional[list[ServiceMemberState]] = None
+    num_services: Optional[int] = None
+    num_services_crit: Optional[int] = None
+    num_services_handled_problems: Optional[int] = None
+    num_services_hard_crit: Optional[int] = None
+    num_services_hard_ok: Optional[int] = None
+    num_services_hard_unknown: Optional[int] = None
+    num_services_hard_warn: Optional[int] = None
+    num_services_ok: Optional[int] = None
+    num_services_pending: Optional[int] = None
+    num_services_unhandled_problems: Optional[int] = None
+    num_services_unknown: Optional[int] = None
+    num_services_warn: Optional[int] = None
+    worst_service_state: Optional[int] = None
+
+    @field_validator("members", mode="before")
+    @classmethod
+    def parse_members(cls, v):
+        return normalize_service_members(v)
+
+    @field_validator("members_with_state", mode="before")
+    @classmethod
+    def parse_members_with_state(cls, v):
+        return normalize_service_members_with_state(v)
+
+
 class CheckmkHostColumns(BaseModel):
     check_info: CheckInfo
     state_history: StateHistory
@@ -313,9 +474,10 @@ class CheckmkHostColumns(BaseModel):
     notes_info: NotesInfo
     system_info: SystemInfo
     acknowledgement_info: Acknowledgement
+    groups: Group
 
     @classmethod
-    def get_columns(cls, additional_fields: Optional[List[str]] = None) -> List[str]:
+    def get_columns(cls, additional_fields: Optional[list[str]] = None) -> list[str]:
         """
         Returns the list of columns to request from the Checkmk API.
 

@@ -30,3 +30,7 @@ CHECKMK_ACKNOWLEDGE_SERVICE_ENDPOINT: str = "domain-types/acknowledge/collection
 CHECKMK_ACKNOWLEDGE_HOST_ENDPOINT: str = "domain-types/acknowledge/collections/host"
 CHECKMK_SERVICE_ENDPOINT: str = "objects/host/{host_name}/actions/show_service/invoke"
 CHECKMK_HOST_ENDPOINT: str = "objects/host/{host_name}"
+CHECKMK_HOST_GROUPS_ENDPOINT: str = "domain-types/host_group_config/collections/all"
+CHECKMK_HOST_GROUP_ENDPOINT: str = "objects/host_group_config/{name}"
+CHECKMK_SERVICE_GROUPS_ENDPOINT: str = "domain-types/service_group_config/collections/all"
+CHECKMK_SERVICE_GROUP_ENDPOINT: str = "objects/service_group_config/{name}"

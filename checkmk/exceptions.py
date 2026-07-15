@@ -198,6 +198,80 @@ class HostProblemAlreadyAcknowledgedError(HostException, ProblemAcknowledgementE
             self.details["host_name"] = host_name
 
 
+class HostGroupException(CheckmkException):
+    """Base exception for all host group-related errors"""
+
+    pass
+
+
+class ServiceGroupException(CheckmkException):
+    """Base exception for all service group-related errors"""
+
+    pass
+
+
+class HostGroupFetchError(HostGroupException, FetchError):
+    """Raised when a checkmk host group could not be fetched"""
+
+    def __init__(
+        self,
+        message: str = "API request failed",
+        resource_id: Optional[str] = None,
+        host_group_name: Optional[str] = None,
+    ) -> None:
+        super().__init__(message, resource_id=resource_id, resource_type="host_group")
+        self.host_group_name = host_group_name
+        if host_group_name:
+            self.details["host_group_name"] = host_group_name
+
+
+class HostGroupParseError(HostGroupException, ParseError):
+    """Raised when a checkmk host group object could not be parsed"""
+
+    def __init__(
+        self,
+        message: str = "Parsing failed",
+        raw_data: Optional[Any] = None,
+        field: Optional[str] = None,
+        host_group_name: Optional[str] = None,
+    ) -> None:
+        super().__init__(message, raw_data=raw_data, field=field)
+        self.host_group_name = host_group_name
+        if host_group_name:
+            self.details["host_group_name"] = host_group_name
+
+
+class ServiceGroupFetchError(ServiceGroupException, FetchError):
+    """Raised when a checkmk service group could not be fetched"""
+
+    def __init__(
+        self,
+        message: str = "API request failed",
+        resource_id: Optional[str] = None,
+        service_group_name: Optional[str] = None,
+    ) -> None:
+        super().__init__(message, resource_id=resource_id, resource_type="service_group")
+        self.service_group_name = service_group_name
+        if service_group_name:
+            self.details["service_group_name"] = service_group_name
+
+
+class ServiceGroupParseError(ServiceGroupException, ParseError):
+    """Raised when a checkmk service group object could not be parsed"""
+
+    def __init__(
+        self,
+        message: str = "Parsing failed",
+        raw_data: Optional[Any] = None,
+        field: Optional[str] = None,
+        service_group_name: Optional[str] = None,
+    ) -> None:
+        super().__init__(message, raw_data=raw_data, field=field)
+        self.service_group_name = service_group_name
+        if service_group_name:
+            self.details["service_group_name"] = service_group_name
+
+
 class HostFetchError(HostException, FetchError):
     """Raised when a checkmk host could not be fetched"""
 

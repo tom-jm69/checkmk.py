@@ -33,6 +33,9 @@ from .exceptions import (
     Forbidden,
     HostException,
     HostFetchError,
+    HostGroupException,
+    HostGroupFetchError,
+    HostGroupParseError,
     HostNoProblemError,
     HostParseError,
     HostProblemAlreadyAcknowledgedError,
@@ -41,6 +44,9 @@ from .exceptions import (
     ParseError,
     ServiceException,
     ServiceFetchError,
+    ServiceGroupException,
+    ServiceGroupFetchError,
+    ServiceGroupParseError,
     ServiceNoProblemError,
     ServiceParseError,
     ServiceProblemAlreadyAcknowledgedError,
@@ -49,7 +55,9 @@ from .exceptions import (
     Unauthorized,
 )
 from .host import Host
+from .host_group import HostGroup
 from .service import Service
+from .service_group import ServiceGroup
 
 __all__ = [
     "Client",
@@ -59,6 +67,9 @@ __all__ = [
     "HostException",
     "HostFetchError",
     "HostParseError",
+    "HostGroupException",
+    "HostGroupFetchError",
+    "HostGroupParseError",
     "HTTPError",
     "NotFound",
     "ParseError",
@@ -66,6 +77,9 @@ __all__ = [
     "ServiceFetchError",
     "ServiceNoProblemError",
     "ServiceParseError",
+    "ServiceGroupException",
+    "ServiceGroupFetchError",
+    "ServiceGroupParseError",
     "ServiceUnavailable",
     "TooManyRequests",
     "Unauthorized",
@@ -74,5 +88,7 @@ __all__ = [
     "ServiceProblemAlreadyAcknowledgedError",
     "Service",
     "Host",
+    "HostGroup",
+    "ServiceGroup",
 ]
 logging.getLogger(__name__).addHandler(logging.NullHandler())

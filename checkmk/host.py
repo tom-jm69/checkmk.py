@@ -30,14 +30,28 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from .enums import HostStates
 from .exceptions import HostNoProblemError, HostProblemAlreadyAcknowledgedError
-from .models import (Acknowledgement, CheckInfo, Comment, CustomHostData,
-                     DowntimeCommentInfo, FlappingInfo, HostAcknowledgement,
-                     HostComment, Link, NotesInfo, NotificationInfo,
-                     PerformanceInfo, PluginOutputInfo, StateHistory,
-                     SystemInfo)
+from .models import (
+    Acknowledgement,
+    CheckInfo,
+    Comment,
+    CustomHostData,
+    DowntimeCommentInfo,
+    FlappingInfo,
+    Group,
+    HostAcknowledgement,
+    HostComment,
+    Link,
+    NotesInfo,
+    NotificationInfo,
+    PerformanceInfo,
+    PluginOutputInfo,
+    StateHistory,
+    SystemInfo,
+)
 from .state import ConnectionState
 
 if TYPE_CHECKING:
+    from .host_group import HostGroup
     from .service import Service
 
 
@@ -56,6 +70,7 @@ class HostExtensions(BaseModel):
     notes_info: NotesInfo
     system_info: SystemInfo
     acknowledgement_info: Acknowledgement
+    groups: Group
 
     @model_validator(mode="before")
     @classmethod
@@ -147,6 +162,9 @@ class HostExtensions(BaseModel):
                     "acknowledgement_type": data.get("acknowledgement_type"),
                     "acknowledged": data.get("acknowledged"),
                 },
+                "groups": {
+                    "groups": data.get("groups"),
+                },
             }
         return data
 
@@ -202,15 +220,20 @@ class Host(BaseModel):
 
     @property
     def ipv4(self) -> str | None:
-        if self._ext.custom_data.custom_variables:
+        if self.custom_variables:
             return self._ext.custom_data.custom_variables.get("ADDRESS_4")
         return None
 
     @property
     def ipv6(self) -> str | None:
-        if self._ext.custom_data.custom_variables:
+        if self.custom_variables:
             return self._ext.custom_data.custom_variables.get("ADDRESS_6")
         return None
+
+    @property
+    def groups(self) -> list[str] | None:
+        """The groups property."""
+        return self._ext.groups.groups if self._ext.groups else None
 
     async def acknowledge(
         self, comment: str, *, sticky: bool = True, persistent: bool = False, notify: bool = True
@@ -280,3 +303,22 @@ class Host(BaseModel):
             services.append(service)
 
         return services
+
+    async def get_groups(self) -> List["HostGroup"]:
+        """
+        Fetch all host groups this host is a member of.
+
+        Returns:
+            List[HostGroup]: List of HostGroup objects for this host's groups.
+        """
+        from .host_group import HostGroup
+
+        groups: List[HostGroup] = []
+
+        for group_name in self.groups or []:
+            group_data = await self._state.http.get_host_group(group_name)
+            group = HostGroup(**group_data)
+            group._state = self._state
+            groups.append(group)
+
+        return groups

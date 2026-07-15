@@ -25,10 +25,17 @@ SOFTWARE.
 import logging
 from typing import Sequence
 
-from .exceptions import HostParseError, ServiceParseError
+from .exceptions import (
+    HostGroupParseError,
+    HostParseError,
+    ServiceGroupParseError,
+    ServiceParseError,
+)
 from .host import Host
+from .host_group import HostGroup
 from .http import CheckmkHTTP
 from .service import Service
+from .service_group import ServiceGroup
 from .state import ConnectionState
 
 __all__ = ("Client",)
@@ -167,3 +174,119 @@ class Client:
                 ) from e
 
         return parsed_hosts
+
+    async def get_host_groups(self) -> Sequence[HostGroup]:
+        """*coroutine*
+        Fetch and deserialize all host groups from the Checkmk API.
+
+        Returns:
+            List[HostGroup]: List of host groups.
+
+        Raises:
+            HostGroupFetchError: On failed host group request.
+            HostGroupParseError: On invalid response structure.
+        """
+        host_groups = await self.http.get_host_groups()
+
+        parsed_host_groups: list[HostGroup] = []
+
+        for host_group_data in host_groups["value"]:
+            try:
+                host_group = HostGroup(**host_group_data)
+                host_group._state = self._state
+                parsed_host_groups.append(host_group)
+            except Exception as e:
+                host_group_name = host_group_data.get("id", "unknown")
+                raise HostGroupParseError(
+                    message=f"Parsing failed: {e}",
+                    raw_data=host_group_data,
+                    host_group_name=host_group_name,
+                ) from e
+
+        return parsed_host_groups
+
+    async def get_host_group(self, name: str) -> HostGroup:
+        """*coroutine*
+        Fetch and deserialize a single host group from the Checkmk API.
+
+        Args:
+            name: Name of the host group.
+
+        Returns:
+            HostGroup: The requested host group.
+
+        Raises:
+            HostGroupFetchError: On failed host group request.
+            HostGroupParseError: On invalid response structure.
+        """
+        host_group_data = await self.http.get_host_group(name)
+
+        try:
+            host_group = HostGroup(**host_group_data)
+            host_group._state = self._state
+        except Exception as e:
+            raise HostGroupParseError(
+                message=f"Parsing failed: {e}",
+                raw_data=host_group_data,
+                host_group_name=name,
+            ) from e
+
+        return host_group
+
+    async def get_service_groups(self) -> Sequence[ServiceGroup]:
+        """*coroutine*
+        Fetch and deserialize all service groups from the Checkmk API.
+
+        Returns:
+            List[ServiceGroup]: List of service groups.
+
+        Raises:
+            ServiceGroupFetchError: On failed service group request.
+            ServiceGroupParseError: On invalid response structure.
+        """
+        service_groups = await self.http.get_service_groups()
+
+        parsed_service_groups: list[ServiceGroup] = []
+
+        for service_group_data in service_groups["value"]:
+            try:
+                service_group = ServiceGroup(**service_group_data)
+                service_group._state = self._state
+                parsed_service_groups.append(service_group)
+            except Exception as e:
+                service_group_name = service_group_data.get("id", "unknown")
+                raise ServiceGroupParseError(
+                    message=f"Parsing failed: {e}",
+                    raw_data=service_group_data,
+                    service_group_name=service_group_name,
+                ) from e
+
+        return parsed_service_groups
+
+    async def get_service_group(self, name: str) -> ServiceGroup:
+        """*coroutine*
+        Fetch and deserialize a single service group from the Checkmk API.
+
+        Args:
+            name: Name of the service group.
+
+        Returns:
+            ServiceGroup: The requested service group.
+
+        Raises:
+            ServiceGroupFetchError: On failed service group request.
+            ServiceGroupParseError: On invalid response structure.
+        """
+        service_group_data = await self.http.get_service_group(name)
+
+        try:
+            service_group = ServiceGroup(**service_group_data)
+            service_group._state = self._state
+        except Exception as e:
+            raise ServiceGroupParseError(
+                message=f"Parsing failed: {e}",
+                raw_data=service_group_data,
+                service_group_name=name,
+            ) from e
+
+        return service_group

@@ -37,16 +37,24 @@ from .constants import (
     CHECKMK_ACKNOWLEDGE_SERVICE_ENDPOINT,
     CHECKMK_ADD_HOST_COMMENT_ENDPOINT,
     CHECKMK_ADD_SERVICE_COMMENT_ENDPOINT,
+    CHECKMK_HOST_GROUP_ENDPOINT,
+    CHECKMK_HOST_GROUPS_ENDPOINT,
     CHECKMK_HOSTS_ENDPOINT,
     CHECKMK_SERVICE_ENDPOINT,
+    CHECKMK_SERVICE_GROUP_ENDPOINT,
+    CHECKMK_SERVICE_GROUPS_ENDPOINT,
     CHECKMK_SERVICES_ENDPOINT,
 )
 from .exceptions import (
     Forbidden,
     HostFetchError,
+    HostGroupFetchError,
+    HostGroupParseError,
     HostParseError,
     NotFound,
     ServiceFetchError,
+    ServiceGroupFetchError,
+    ServiceGroupParseError,
     ServiceParseError,
     ServiceUnavailable,
     TooManyRequests,
@@ -292,7 +300,7 @@ class CheckmkHTTP:
         self.client.auth = APIAuth(username=self.username, secret=self.secret)
 
     async def get_hosts(self) -> Dict[str, Any]:
-        columns_request_data = CheckmkHostColumns.get_columns(["name"])
+        columns_request_data = CheckmkHostColumns.get_columns(["name", "groups"])
         data = ColumnsRequest(columns=columns_request_data).model_dump_json()
 
         try:
@@ -313,6 +321,81 @@ class CheckmkHTTP:
             raise HostParseError(
                 message="Invalid response structure: missing 'value' field", raw_data=response
             )
+        print(response)
+        return response
+
+    async def get_host_groups(self) -> Dict[str, Any]:
+        try:
+            response = await self.client.request(
+                Route(
+                    base_url=self.url,
+                    method="GET",
+                    path=CHECKMK_HOST_GROUPS_ENDPOINT,
+                ),
+            )
+        except Exception as e:
+            raise HostGroupFetchError(
+                message=f"API request failed: {e}",
+            ) from e
+
+        if not response or "value" not in response:
+            raise HostGroupParseError(
+                message="Invalid response structure: missing 'value' field", raw_data=response
+            )
+        return response
+
+    async def get_host_group(self, name: str) -> Dict[str, Any]:
+        try:
+            response = await self.client.request(
+                Route(
+                    base_url=self.url,
+                    method="GET",
+                    path=CHECKMK_HOST_GROUP_ENDPOINT.format(name=name),
+                ),
+            )
+        except Exception as e:
+            raise HostGroupFetchError(
+                message=f"API request failed: {e}",
+                host_group_name=name,
+            ) from e
+
+        return response
+
+    async def get_service_groups(self) -> Dict[str, Any]:
+        try:
+            response = await self.client.request(
+                Route(
+                    base_url=self.url,
+                    method="GET",
+                    path=CHECKMK_SERVICE_GROUPS_ENDPOINT,
+                ),
+            )
+        except Exception as e:
+            raise ServiceGroupFetchError(
+                message=f"API request failed: {e}",
+            ) from e
+
+        if not response or "value" not in response:
+            raise ServiceGroupParseError(
+                message="Invalid response structure: missing 'value' field", raw_data=response
+            )
+        return response
+
+    async def get_service_group(self, name: str) -> Dict[str, Any]:
+        try:
+            response = await self.client.request(
+                Route(
+                    base_url=self.url,
+                    method="GET",
+                    path=CHECKMK_SERVICE_GROUP_ENDPOINT.format(name=name),
+                ),
+            )
+        except Exception as e:
+            raise ServiceGroupFetchError(
+                message=f"API request failed: {e}",
+                service_group_name=name,
+            ) from e
+
         return response
 
     async def add_service_comment(self, comment: ServiceComment) -> bool:

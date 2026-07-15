@@ -68,6 +68,62 @@ services = await client.get_services()
 - `ServiceFetchError` - Failed to fetch services
 - `ServiceParseError` - Failed to parse service data
 
+### get_host_groups()
+
+Fetch all host groups from the Checkmk API.
+
+```python
+host_groups = await client.get_host_groups()
+```
+
+**Returns:** `List[HostGroup]`
+
+**Raises:**
+- `HostGroupFetchError` - Failed to fetch host groups
+- `HostGroupParseError` - Failed to parse host group data
+
+### get_host_group()
+
+Fetch a single host group by name.
+
+```python
+host_group = await client.get_host_group(name="my_group")
+```
+
+**Returns:** `HostGroup`
+
+**Raises:**
+- `HostGroupFetchError` - Failed to fetch the host group
+- `HostGroupParseError` - Failed to parse host group data
+
+### get_service_groups()
+
+Fetch all service groups from the Checkmk API.
+
+```python
+service_groups = await client.get_service_groups()
+```
+
+**Returns:** `List[ServiceGroup]`
+
+**Raises:**
+- `ServiceGroupFetchError` - Failed to fetch service groups
+- `ServiceGroupParseError` - Failed to parse service group data
+
+### get_service_group()
+
+Fetch a single service group by name.
+
+```python
+service_group = await client.get_service_group(name="my_group")
+```
+
+**Returns:** `ServiceGroup`
+
+**Raises:**
+- `ServiceGroupFetchError` - Failed to fetch the service group
+- `ServiceGroupParseError` - Failed to parse service group data
+
 ### close()
 
 Close the underlying HTTP session.

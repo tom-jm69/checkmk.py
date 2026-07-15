@@ -142,6 +142,17 @@ if service.host_tags:
         print(f"{key}: {value}")
 ```
 
+### groups
+**Type:** `list[str] | None`
+
+List of service group names this service is a member of.
+
+```python
+if service.groups:
+    for group_name in service.groups:
+        print(group_name)
+```
+
 ## Methods
 
 ### acknowledge()
@@ -206,6 +217,23 @@ comment = await service.add_comment(
     comment="Scheduled maintenance tonight",
     persistent=True
 )
+```
+
+### get_groups()
+
+Fetch the [`ServiceGroup`](service_group.md) objects this service is a member of.
+
+```python
+groups = await service.get_groups()
+```
+
+**Returns:** `List[ServiceGroup]`
+
+**Example:**
+```python
+groups = await service.get_groups()
+for group in groups:
+    print(f"  {group.name}: {group.num_services} services")
 ```
 
 ## Complete Example
