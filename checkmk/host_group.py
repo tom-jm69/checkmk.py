@@ -23,8 +23,7 @@ SOFTWARE.
 """
 
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
@@ -34,17 +33,21 @@ from .state import ConnectionState
 
 
 class HostGroup(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
     domain_type: str = Field(alias="domainType")
     id: str
     title: str
-    members: Optional[Dict[str, Any]] = None
-    updated_at: Optional[datetime] = Field(default_factory=datetime.now)
+    members: dict[str, object] | None = None
+    updated_at: datetime | None = Field(default_factory=datetime.now)
     extensions: HostGroupExtensions
-    links: List[Link]
+    links: list[Link]
 
     _state: ConnectionState = PrivateAttr()
+
+    def bind_state(self, state: ConnectionState) -> None:
+        """Attach the shared connection state. Called by `Client` after construction."""
+        self._state = state
 
     @property
     def _ext(self) -> HostGroupExtensions:
@@ -75,7 +78,7 @@ class HostGroup(BaseModel):
         return self._ext.members
 
     @property
-    def hosts_with_state(self) -> List[HostMemberState] | None:
+    def hosts_with_state(self) -> list[HostMemberState] | None:
         return self._ext.members_with_state
 
     @property
@@ -155,19 +158,19 @@ class HostGroup(BaseModel):
         return self._ext.num_services_hard_unknown
 
     @property
-    def worst_host_state(self) -> Enum | None:
+    def worst_host_state(self) -> HostStates | None:
         if self._ext.worst_host_state is None:
             return None
         return HostStates(self._ext.worst_host_state)
 
     @property
-    def worst_service_state(self) -> Enum | None:
+    def worst_service_state(self) -> ServiceStates | None:
         if self._ext.worst_service_state is None:
             return None
         return ServiceStates(self._ext.worst_service_state)
 
     @property
-    def worst_service_hard_state(self) -> Enum | None:
+    def worst_service_hard_state(self) -> ServiceStates | None:
         if self._ext.worst_service_hard_state is None:
             return None
         return ServiceStates(self._ext.worst_service_hard_state)

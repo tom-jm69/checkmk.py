@@ -23,7 +23,8 @@ SOFTWARE.
 """
 
 import logging
-from typing import Sequence
+from collections.abc import Sequence
+from types import TracebackType
 
 from .exceptions import (
     HostGroupParseError,
@@ -33,7 +34,7 @@ from .exceptions import (
 )
 from .host import Host
 from .host_group import HostGroup
-from .http import CheckmkHTTP
+from .http import CheckmkHTTP, value_list
 from .service import Service
 from .service_group import ServiceGroup
 from .state import ConnectionState
@@ -78,12 +79,12 @@ class Client:
             scheme: Connection scheme, `"http"` or `"https"` (default: `"https"`).
 
         """
-        self.url = url
-        self.port = port
-        self.scheme = scheme
-        self.site_name = site_name
-        self.base_url = f"{scheme}://{url}:{port}/{site_name}/check_mk"
-        self.http = CheckmkHTTP(
+        self.url: str = url
+        self.port: int = port
+        self.scheme: str = scheme
+        self.site_name: str = site_name
+        self.base_url: str = f"{scheme}://{url}:{port}/{site_name}/check_mk"
+        self.http: CheckmkHTTP = CheckmkHTTP(
             url=f"{self.base_url}/api/{api_version}/",
             username=username,
             secret=secret,
@@ -91,12 +92,17 @@ class Client:
             timeout=timeout,
             retries=retries,
         )
-        self._state = ConnectionState(self.http)
+        self._state: ConnectionState = ConnectionState(self.http)
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "Client":
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> bool:
         if exc_type is not None:
             _log.error(f"Exception occurred: {exc_val}")
         await self.close()
@@ -132,13 +138,13 @@ class Client:
 
         parsed_services: list[Service] = []
 
-        for service_data in services["value"]:
+        for service_data in value_list(services):
             try:
-                service = Service(**service_data)
-                service._state = self._state
+                service = Service.model_validate(service_data)
+                service.bind_state(self._state)
                 parsed_services.append(service)
             except Exception as e:
-                service_id = service_data.get("id", "unknown")
+                service_id = str(service_data.get("id", "unknown"))
                 raise ServiceParseError(
                     message=f"Parsing failed: {e}",
                     raw_data=service_data,
@@ -162,13 +168,13 @@ class Client:
 
         parsed_hosts: list[Host] = []
 
-        for host_data in hosts["value"]:
+        for host_data in value_list(hosts):
             try:
-                host = Host(**host_data)
-                host._state = self._state
+                host = Host.model_validate(host_data)
+                host.bind_state(self._state)
                 parsed_hosts.append(host)
             except Exception as e:
-                host_name = host_data.get("id", "unknown")
+                host_name = str(host_data.get("id", "unknown"))
                 raise HostParseError(
                     message=f"Parsing failed: {e}", raw_data=host_data, host_name=host_name
                 ) from e
@@ -190,13 +196,13 @@ class Client:
 
         parsed_host_groups: list[HostGroup] = []
 
-        for host_group_data in host_groups["value"]:
+        for host_group_data in value_list(host_groups):
             try:
-                host_group = HostGroup(**host_group_data)
-                host_group._state = self._state
+                host_group = HostGroup.model_validate(host_group_data)
+                host_group.bind_state(self._state)
                 parsed_host_groups.append(host_group)
             except Exception as e:
-                host_group_name = host_group_data.get("id", "unknown")
+                host_group_name = str(host_group_data.get("id", "unknown"))
                 raise HostGroupParseError(
                     message=f"Parsing failed: {e}",
                     raw_data=host_group_data,
@@ -222,8 +228,8 @@ class Client:
         host_group_data = await self.http.get_host_group(name)
 
         try:
-            host_group = HostGroup(**host_group_data)
-            host_group._state = self._state
+            host_group = HostGroup.model_validate(host_group_data)
+            host_group.bind_state(self._state)
         except Exception as e:
             raise HostGroupParseError(
                 message=f"Parsing failed: {e}",
@@ -248,13 +254,13 @@ class Client:
 
         parsed_service_groups: list[ServiceGroup] = []
 
-        for service_group_data in service_groups["value"]:
+        for service_group_data in value_list(service_groups):
             try:
-                service_group = ServiceGroup(**service_group_data)
-                service_group._state = self._state
+                service_group = ServiceGroup.model_validate(service_group_data)
+                service_group.bind_state(self._state)
                 parsed_service_groups.append(service_group)
             except Exception as e:
-                service_group_name = service_group_data.get("id", "unknown")
+                service_group_name = str(service_group_data.get("id", "unknown"))
                 raise ServiceGroupParseError(
                     message=f"Parsing failed: {e}",
                     raw_data=service_group_data,
@@ -280,8 +286,8 @@ class Client:
         service_group_data = await self.http.get_service_group(name)
 
         try:
-            service_group = ServiceGroup(**service_group_data)
-            service_group._state = self._state
+            service_group = ServiceGroup.model_validate(service_group_data)
+            service_group.bind_state(self._state)
         except Exception as e:
             raise ServiceGroupParseError(
                 message=f"Parsing failed: {e}",

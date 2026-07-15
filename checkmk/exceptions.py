@@ -22,20 +22,21 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from typing import Any, Optional
-
 import aiohttp
-from aiohttp import ClientResponse
+from typing_extensions import override
+
+ResponseData = dict[str, object] | str
 
 
 class CheckmkException(Exception):
     """Base exception class for all checkmk library errors"""
 
-    def __init__(self, message: str | ClientResponse, **kwargs: Any) -> None:
+    def __init__(self, message: str, **kwargs: object) -> None:
         super().__init__(message)
-        self.message = message
-        self.details = kwargs
+        self.message: str = message
+        self.details: dict[str, object] = kwargs
 
+    @override
     def __str__(self) -> str:
         if self.details:
             details_str = ", ".join(f"{k}={v!r}" for k, v in self.details.items())
@@ -48,18 +49,19 @@ class HTTPError(CheckmkException):
 
     def __init__(
         self,
-        message: str | ClientResponse,
-        status_code: Optional[int] = None,
-        response_data: Optional[Any] = None,
-        url: Optional[str] = None,
+        message: str,
+        status_code: int | None = None,
+        response_data: ResponseData | None = None,
+        url: str | None = None,
     ) -> None:
         super().__init__(message, status_code=status_code, url=url)
-        self.status_code = status_code
-        self.response_data = response_data
-        self.url = url
+        self.status_code: int | None = status_code
+        self.response_data: ResponseData | None = response_data
+        self.url: str | None = url
 
+    @override
     def __str__(self) -> str:
-        parts = [self.message if isinstance(self.message, str) else str(self.message)]
+        parts = [self.message]
         if self.status_code:
             parts.append(f"Status: {self.status_code}")
         if self.url:
@@ -75,12 +77,12 @@ class ParseError(CheckmkException):
     def __init__(
         self,
         message: str,
-        raw_data: Optional[Any] = None,
-        field: Optional[str] = None,
+        raw_data: ResponseData | None = None,
+        field: str | None = None,
     ) -> None:
         super().__init__(message, raw_data=raw_data, field=field)
-        self.raw_data = raw_data
-        self.field = field
+        self.raw_data: ResponseData | None = raw_data
+        self.field: str | None = field
 
 
 class FetchError(CheckmkException):
@@ -89,12 +91,12 @@ class FetchError(CheckmkException):
     def __init__(
         self,
         message: str,
-        resource_id: Optional[str] = None,
-        resource_type: Optional[str] = None,
+        resource_id: str | None = None,
+        resource_type: str | None = None,
     ) -> None:
         super().__init__(message, resource_id=resource_id, resource_type=resource_type)
-        self.resource_id = resource_id
-        self.resource_type = resource_type
+        self.resource_id: str | None = resource_id
+        self.resource_type: str | None = resource_type
 
 
 class ProblemAcknowledgementError(CheckmkException):
@@ -115,89 +117,6 @@ class ServiceException(CheckmkException):
     pass
 
 
-class ServiceParseError(ServiceException, ParseError):
-    """Raised when a raw checkmk service object can't be properly parsed"""
-
-    def __init__(
-        self,
-        message: str = "Parsing failed",
-        raw_data: Optional[Any] = None,
-        field: Optional[str] = None,
-        service_description: Optional[str] = None,
-    ) -> None:
-        super().__init__(message, raw_data=raw_data, field=field)
-        self.service_description = service_description
-        if service_description:
-            self.details["service_description"] = service_description
-
-
-class ServiceFetchError(ServiceException, FetchError):
-    """Raised when a checkmk service could not be fetched"""
-
-    def __init__(
-        self,
-        message: str = "API request failed",
-        resource_id: Optional[str] = None,
-        service_description: Optional[str] = None,
-    ) -> None:
-        super().__init__(message, resource_id=resource_id, resource_type="service")
-        self.service_description = service_description
-        if service_description:
-            self.details["service_description"] = service_description
-
-
-class ServiceNoProblemError(ServiceException, ProblemAcknowledgementError):
-    def __init__(
-        self,
-        message: str = "Service Problem Acknowledgement failed",
-        resource_id: Optional[str] = None,
-        service_description: Optional[str] = None,
-    ) -> None:
-        super().__init__(message, resource_id=resource_id, resource_type="service")
-        self.service_description = service_description
-        if service_description:
-            self.details["service_description"] = service_description
-
-
-class ServiceProblemAlreadyAcknowledgedError(ServiceException, ProblemAcknowledgementError):
-    def __init__(
-        self,
-        message: str = "Service Problem already acknowledged",
-        resource_id: Optional[str] = None,
-        service_description: Optional[str] = None,
-    ) -> None:
-        super().__init__(message, resource_id=resource_id, resource_type="service")
-        self.service_description = service_description
-        if service_description:
-            self.details["service_description"] = service_description
-
-
-class HostNoProblemError(HostException, ProblemAcknowledgementError):
-    def __init__(
-        self,
-        message: str = "Host Problem Acknowledgement failed",
-        resource_id: Optional[str] = None,
-        host_name: Optional[str] = None,
-    ) -> None:
-        super().__init__(message, resource_id=resource_id, resource_type="host")
-        self.host_name = host_name
-        if host_name:
-            self.details["host_name"] = host_name
-
-
-class HostProblemAlreadyAcknowledgedError(HostException, ProblemAcknowledgementError):
-    def __init__(
-        self,
-        message: str = "Host Problem already acknowledged",
-        resource_id: Optional[str] = None,
-        host_name: Optional[str] = None,
-    ) -> None:
-        super().__init__(message, resource_id=resource_id, resource_type="host")
-        self.host_name = host_name
-        if host_name:
-            self.details["host_name"] = host_name
-
-
 class HostGroupException(CheckmkException):
     """Base exception for all host group-related errors"""
 
@@ -210,95 +129,194 @@ class ServiceGroupException(CheckmkException):
     pass
 
 
-class HostGroupFetchError(HostGroupException, FetchError):
+class ServiceParseError(  # pyright: ignore[reportUnsafeMultipleInheritance]
+    ServiceException, ParseError
+):
+    """Raised when a raw checkmk service object can't be properly parsed"""
+
+    def __init__(
+        self,
+        message: str = "Parsing failed",
+        raw_data: ResponseData | None = None,
+        field: str | None = None,
+        service_description: str | None = None,
+    ) -> None:
+        super().__init__(message, raw_data=raw_data, field=field)
+        self.service_description: str | None = service_description
+        if service_description:
+            self.details["service_description"] = service_description
+
+
+class ServiceFetchError(  # pyright: ignore[reportUnsafeMultipleInheritance]
+    ServiceException, FetchError
+):
+    """Raised when a checkmk service could not be fetched"""
+
+    def __init__(
+        self,
+        message: str = "API request failed",
+        resource_id: str | None = None,
+        service_description: str | None = None,
+    ) -> None:
+        super().__init__(message, resource_id=resource_id, resource_type="service")
+        self.service_description: str | None = service_description
+        if service_description:
+            self.details["service_description"] = service_description
+
+
+class ServiceNoProblemError(ServiceException, ProblemAcknowledgementError):
+    def __init__(
+        self,
+        message: str = "Service Problem Acknowledgement failed",
+        resource_id: str | None = None,
+        service_description: str | None = None,
+    ) -> None:
+        super().__init__(message, resource_id=resource_id, resource_type="service")
+        self.service_description: str | None = service_description
+        if service_description:
+            self.details["service_description"] = service_description
+
+
+class ServiceProblemAlreadyAcknowledgedError(ServiceException, ProblemAcknowledgementError):
+    def __init__(
+        self,
+        message: str = "Service Problem already acknowledged",
+        resource_id: str | None = None,
+        service_description: str | None = None,
+    ) -> None:
+        super().__init__(message, resource_id=resource_id, resource_type="service")
+        self.service_description: str | None = service_description
+        if service_description:
+            self.details["service_description"] = service_description
+
+
+class HostNoProblemError(HostException, ProblemAcknowledgementError):
+    def __init__(
+        self,
+        message: str = "Host Problem Acknowledgement failed",
+        resource_id: str | None = None,
+        host_name: str | None = None,
+    ) -> None:
+        super().__init__(message, resource_id=resource_id, resource_type="host")
+        self.host_name: str | None = host_name
+        if host_name:
+            self.details["host_name"] = host_name
+
+
+class HostProblemAlreadyAcknowledgedError(HostException, ProblemAcknowledgementError):
+    def __init__(
+        self,
+        message: str = "Host Problem already acknowledged",
+        resource_id: str | None = None,
+        host_name: str | None = None,
+    ) -> None:
+        super().__init__(message, resource_id=resource_id, resource_type="host")
+        self.host_name: str | None = host_name
+        if host_name:
+            self.details["host_name"] = host_name
+
+
+class HostGroupFetchError(  # pyright: ignore[reportUnsafeMultipleInheritance]
+    HostGroupException, FetchError
+):
     """Raised when a checkmk host group could not be fetched"""
 
     def __init__(
         self,
         message: str = "API request failed",
-        resource_id: Optional[str] = None,
-        host_group_name: Optional[str] = None,
+        resource_id: str | None = None,
+        host_group_name: str | None = None,
     ) -> None:
         super().__init__(message, resource_id=resource_id, resource_type="host_group")
-        self.host_group_name = host_group_name
+        self.host_group_name: str | None = host_group_name
         if host_group_name:
             self.details["host_group_name"] = host_group_name
 
 
-class HostGroupParseError(HostGroupException, ParseError):
+class HostGroupParseError(  # pyright: ignore[reportUnsafeMultipleInheritance]
+    HostGroupException, ParseError
+):
     """Raised when a checkmk host group object could not be parsed"""
 
     def __init__(
         self,
         message: str = "Parsing failed",
-        raw_data: Optional[Any] = None,
-        field: Optional[str] = None,
-        host_group_name: Optional[str] = None,
+        raw_data: ResponseData | None = None,
+        field: str | None = None,
+        host_group_name: str | None = None,
     ) -> None:
         super().__init__(message, raw_data=raw_data, field=field)
-        self.host_group_name = host_group_name
+        self.host_group_name: str | None = host_group_name
         if host_group_name:
             self.details["host_group_name"] = host_group_name
 
 
-class ServiceGroupFetchError(ServiceGroupException, FetchError):
+class ServiceGroupFetchError(  # pyright: ignore[reportUnsafeMultipleInheritance]
+    ServiceGroupException, FetchError
+):
     """Raised when a checkmk service group could not be fetched"""
 
     def __init__(
         self,
         message: str = "API request failed",
-        resource_id: Optional[str] = None,
-        service_group_name: Optional[str] = None,
+        resource_id: str | None = None,
+        service_group_name: str | None = None,
     ) -> None:
         super().__init__(message, resource_id=resource_id, resource_type="service_group")
-        self.service_group_name = service_group_name
+        self.service_group_name: str | None = service_group_name
         if service_group_name:
             self.details["service_group_name"] = service_group_name
 
 
-class ServiceGroupParseError(ServiceGroupException, ParseError):
+class ServiceGroupParseError(  # pyright: ignore[reportUnsafeMultipleInheritance]
+    ServiceGroupException, ParseError
+):
     """Raised when a checkmk service group object could not be parsed"""
 
     def __init__(
         self,
         message: str = "Parsing failed",
-        raw_data: Optional[Any] = None,
-        field: Optional[str] = None,
-        service_group_name: Optional[str] = None,
+        raw_data: ResponseData | None = None,
+        field: str | None = None,
+        service_group_name: str | None = None,
     ) -> None:
         super().__init__(message, raw_data=raw_data, field=field)
-        self.service_group_name = service_group_name
+        self.service_group_name: str | None = service_group_name
         if service_group_name:
             self.details["service_group_name"] = service_group_name
 
 
-class HostFetchError(HostException, FetchError):
+class HostFetchError(  # pyright: ignore[reportUnsafeMultipleInheritance]
+    HostException, FetchError
+):
     """Raised when a checkmk host could not be fetched"""
 
     def __init__(
         self,
         message: str = "API request failed",
-        resource_id: Optional[str] = None,
-        host_name: Optional[str] = None,
+        resource_id: str | None = None,
+        host_name: str | None = None,
     ) -> None:
         super().__init__(message, resource_id=resource_id, resource_type="host")
-        self.host_name = host_name
+        self.host_name: str | None = host_name
         if host_name:
             self.details["host_name"] = host_name
 
 
-class HostParseError(HostException, ParseError):
+class HostParseError(  # pyright: ignore[reportUnsafeMultipleInheritance]
+    HostException, ParseError
+):
     """Raised when a checkmk host object could not be parsed"""
 
     def __init__(
         self,
         message: str = "Parsing failed",
-        raw_data: Optional[Any] = None,
-        field: Optional[str] = None,
-        host_name: Optional[str] = None,
+        raw_data: ResponseData | None = None,
+        field: str | None = None,
+        host_name: str | None = None,
     ) -> None:
         super().__init__(message, raw_data=raw_data, field=field)
-        self.host_name = host_name
+        self.host_name: str | None = host_name
         if host_name:
             self.details["host_name"] = host_name
 
@@ -309,8 +327,8 @@ class Unauthorized(HTTPError):
 
     def __init__(
         self,
-        response: Optional[aiohttp.ClientResponse],
-        data: Any,
+        response: aiohttp.ClientResponse | None,
+        data: ResponseData,
     ) -> None:
         status = response.status if response else 401
         url = str(response.url) if response else None
@@ -320,7 +338,7 @@ class Unauthorized(HTTPError):
             response_data=data,
             url=url,
         )
-        self.response = response
+        self.response: aiohttp.ClientResponse | None = response
 
 
 class Forbidden(HTTPError):
@@ -328,8 +346,8 @@ class Forbidden(HTTPError):
 
     def __init__(
         self,
-        response: Optional[aiohttp.ClientResponse],
-        data: Any,
+        response: aiohttp.ClientResponse | None,
+        data: ResponseData,
     ) -> None:
         status = response.status if response else 403
         url = str(response.url) if response else None
@@ -339,7 +357,7 @@ class Forbidden(HTTPError):
             response_data=data,
             url=url,
         )
-        self.response = response
+        self.response: aiohttp.ClientResponse | None = response
 
 
 class NotFound(HTTPError):
@@ -347,8 +365,8 @@ class NotFound(HTTPError):
 
     def __init__(
         self,
-        response: Optional[aiohttp.ClientResponse],
-        data: Any,
+        response: aiohttp.ClientResponse | None,
+        data: ResponseData,
     ) -> None:
         status = response.status if response else 404
         url = str(response.url) if response else None
@@ -358,7 +376,7 @@ class NotFound(HTTPError):
             response_data=data,
             url=url,
         )
-        self.response = response
+        self.response: aiohttp.ClientResponse | None = response
 
 
 class TooManyRequests(HTTPError):
@@ -366,8 +384,8 @@ class TooManyRequests(HTTPError):
 
     def __init__(
         self,
-        response: Optional[aiohttp.ClientResponse],
-        data: Any,
+        response: aiohttp.ClientResponse | None,
+        data: ResponseData,
     ) -> None:
         status = response.status if response else 429
         url = str(response.url) if response else None
@@ -377,7 +395,7 @@ class TooManyRequests(HTTPError):
             response_data=data,
             url=url,
         )
-        self.response = response
+        self.response: aiohttp.ClientResponse | None = response
 
 
 class ServiceUnavailable(HTTPError):
@@ -385,8 +403,8 @@ class ServiceUnavailable(HTTPError):
 
     def __init__(
         self,
-        response: Optional[aiohttp.ClientResponse],
-        data: Any,
+        response: aiohttp.ClientResponse | None,
+        data: ResponseData,
     ) -> None:
         status = response.status if response else 503
         url = str(response.url) if response else None
@@ -396,4 +414,4 @@ class ServiceUnavailable(HTTPError):
             response_data=data,
             url=url,
         )
-        self.response = response
+        self.response: aiohttp.ClientResponse | None = response

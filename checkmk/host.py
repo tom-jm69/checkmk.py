@@ -23,8 +23,7 @@ SOFTWARE.
 """
 
 from datetime import datetime
-from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
@@ -74,10 +73,11 @@ class HostExtensions(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def organize_flat_data(cls, data: dict) -> dict:
+    def organize_flat_data(cls, data: object) -> object:
         """Transform flat API response into nested structure."""
         if isinstance(data, dict) and "check_info" not in data:
-            return {
+            data = cast(dict[str, object], data)
+            result: dict[str, object] = {
                 "name": data.get("name"),
                 "check_info": {
                     "check_command": data.get("check_command"),
@@ -166,28 +166,33 @@ class HostExtensions(BaseModel):
                     "groups": data.get("groups"),
                 },
             }
-        return data
+            return result
+        return data  # pyright: ignore[reportUnknownVariableType]
 
 
 class Host(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
     domain_type: str = Field(alias="domainType")
     id: str
     title: str
-    members: Optional[Dict[str, Any]] = None
-    updated_at: Optional[datetime] = Field(default_factory=datetime.now)
+    members: dict[str, object] | None = None
+    updated_at: datetime | None = Field(default_factory=datetime.now)
     extensions: HostExtensions
-    links: List[Link]
+    links: list[Link]
 
     _state: ConnectionState = PrivateAttr()
+
+    def bind_state(self, state: ConnectionState) -> None:
+        """Attach the shared connection state. Called by `Client`/`Host` after construction."""
+        self._state = state
 
     @property
     def _ext(self) -> HostExtensions:
         return self.extensions
 
     @property
-    def comments(self) -> List[Comment] | None:
+    def comments(self) -> list[Comment] | None:
         return self._ext.downtime_comment_info.comments_with_extra_info
 
     @property
@@ -203,7 +208,7 @@ class Host(BaseModel):
         return self._ext.name
 
     @property
-    def state(self) -> Enum:
+    def state(self) -> HostStates:
         return HostStates(self._ext.state_history.state)
 
     @property
@@ -220,14 +225,16 @@ class Host(BaseModel):
 
     @property
     def ipv4(self) -> str | None:
-        if self.custom_variables:
-            return self._ext.custom_data.custom_variables.get("ADDRESS_4")
+        custom_variables = self.custom_variables
+        if custom_variables:
+            return custom_variables.get("ADDRESS_4")
         return None
 
     @property
     def ipv6(self) -> str | None:
-        if self.custom_variables:
-            return self._ext.custom_data.custom_variables.get("ADDRESS_6")
+        custom_variables = self.custom_variables
+        if custom_variables:
+            return custom_variables.get("ADDRESS_6")
         return None
 
     @property
@@ -237,7 +244,7 @@ class Host(BaseModel):
 
     async def acknowledge(
         self, comment: str, *, sticky: bool = True, persistent: bool = False, notify: bool = True
-    ) -> None:
+    ) -> bool:
         """
         Acknowledge this host.
 
@@ -273,7 +280,7 @@ class Host(BaseModel):
             persistent: Whether the acknowledgement persists across restarts
         """
         data = HostComment(host_name=self.host_name, comment=comment, persistent=persistent)
-        await self._state.http.add_host_comment(data)
+        _ = await self._state.http.add_host_comment(data)
         return data
 
     async def remove_acknowledgement(self) -> None:
@@ -285,26 +292,27 @@ class Host(BaseModel):
         """
         raise NotImplementedError("Host acknowledgement removal is not yet implemented")
 
-    async def get_services(self) -> List["Service"]:
+    async def get_services(self) -> list["Service"]:
         """
         Fetch all services associated with this host.
 
         Returns:
             List[Service]: List of Service objects for this host
         """
+        from .http import value_list
         from .service import Service
 
         response = await self._state.http.get_services(host_name=self.name)
-        services = []
+        services: list[Service] = []
 
-        for service_data in response.get("value", []):
-            service = Service(**service_data)
-            service._state = self._state
+        for service_data in value_list(response):
+            service = Service.model_validate(service_data)
+            service.bind_state(self._state)
             services.append(service)
 
         return services
 
-    async def get_groups(self) -> List["HostGroup"]:
+    async def get_groups(self) -> list["HostGroup"]:
         """
         Fetch all host groups this host is a member of.
 
@@ -313,12 +321,12 @@ class Host(BaseModel):
         """
         from .host_group import HostGroup
 
-        groups: List[HostGroup] = []
+        groups: list[HostGroup] = []
 
         for group_name in self.groups or []:
             group_data = await self._state.http.get_host_group(group_name)
-            group = HostGroup(**group_data)
-            group._state = self._state
+            group = HostGroup.model_validate(group_data)
+            group.bind_state(self._state)
             groups.append(group)
 
         return groups

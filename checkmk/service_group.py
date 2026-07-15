@@ -23,8 +23,7 @@ SOFTWARE.
 """
 
 from datetime import datetime
-from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
@@ -34,17 +33,21 @@ from .state import ConnectionState
 
 
 class ServiceGroup(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="allow")
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True, extra="allow")
 
     domain_type: str = Field(alias="domainType")
     id: str
     title: str
-    members: Optional[Dict[str, Any]] = None
-    updated_at: Optional[datetime] = Field(default_factory=datetime.now)
+    members: dict[str, object] | None = None
+    updated_at: datetime | None = Field(default_factory=datetime.now)
     extensions: ServiceGroupExtensions
-    links: List[Link]
+    links: list[Link]
 
     _state: ConnectionState = PrivateAttr()
+
+    def bind_state(self, state: ConnectionState) -> None:
+        """Attach the shared connection state. Called by `Client` after construction."""
+        self._state = state
 
     @property
     def _ext(self) -> ServiceGroupExtensions:
@@ -71,11 +74,11 @@ class ServiceGroup(BaseModel):
         return self._ext.notes_url
 
     @property
-    def services(self) -> List[ServiceMember] | None:
+    def services(self) -> list[ServiceMember] | None:
         return self._ext.members
 
     @property
-    def services_with_state(self) -> List[ServiceMemberState] | None:
+    def services_with_state(self) -> list[ServiceMemberState] | None:
         return self._ext.members_with_state
 
     @property
@@ -127,7 +130,7 @@ class ServiceGroup(BaseModel):
         return self._ext.num_services_hard_unknown
 
     @property
-    def worst_service_state(self) -> Enum | None:
+    def worst_service_state(self) -> ServiceStates | None:
         if self._ext.worst_service_state is None:
             return None
         return ServiceStates(self._ext.worst_service_state)

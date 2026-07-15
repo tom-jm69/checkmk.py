@@ -23,8 +23,7 @@ SOFTWARE.
 """
 
 from datetime import datetime
-from enum import Enum
-from typing import TYPE_CHECKING, Dict, List, Optional
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
@@ -75,10 +74,11 @@ class ServiceExtensions(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def organize_flat_data(cls, data: dict) -> dict:
+    def organize_flat_data(cls, data: object) -> object:
         """Transform flat API response into nested structure."""
         if isinstance(data, dict) and "check_info" not in data:
-            return {
+            data = cast(dict[str, object], data)
+            result: dict[str, object] = {
                 "host_name": data.get("host_name"),
                 "description": data.get("description"),
                 "check_info": {
@@ -176,28 +176,33 @@ class ServiceExtensions(BaseModel):
                     "groups": data.get("groups"),
                 },
             }
-        return data
+            return result
+        return data  # pyright: ignore[reportUnknownVariableType]
 
 
 class Service(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
 
     domain_type: str = Field(alias="domainType")
     id: str
-    links: List[Link]
-    members: Dict
+    links: list[Link]
+    members: dict[str, object]
     title: str
-    updated_at: Optional[datetime] = Field(default_factory=datetime.now)
+    updated_at: datetime | None = Field(default_factory=datetime.now)
     extensions: ServiceExtensions
 
     _state: ConnectionState = PrivateAttr()
+
+    def bind_state(self, state: ConnectionState) -> None:
+        """Attach the shared connection state. Called by `Client`/`Host` after construction."""
+        self._state = state
 
     @property
     def _ext(self) -> ServiceExtensions:
         return self.extensions
 
     @property
-    def comments(self) -> List[Comment] | None:
+    def comments(self) -> list[Comment] | None:
         return self._ext.downtime_comment_info.comments_with_extra_info
 
     @property
@@ -221,7 +226,7 @@ class Service(BaseModel):
         return self._ext.host_name
 
     @property
-    def state(self) -> Enum:
+    def state(self) -> ServiceStates:
         return ServiceStates(self._ext.state_history.state)
 
     @property
@@ -245,7 +250,7 @@ class Service(BaseModel):
         """The service groups this service is a member of."""
         return self._ext.groups.groups if self._ext.groups else None
 
-    async def get_groups(self) -> List["ServiceGroup"]:
+    async def get_groups(self) -> list["ServiceGroup"]:
         """
         Fetch all service groups this service is a member of.
 
@@ -254,12 +259,12 @@ class Service(BaseModel):
         """
         from .service_group import ServiceGroup
 
-        groups: List[ServiceGroup] = []
+        groups: list[ServiceGroup] = []
 
         for group_name in self.groups or []:
             group_data = await self._state.http.get_service_group(group_name)
-            group = ServiceGroup(**group_data)
-            group._state = self._state
+            group = ServiceGroup.model_validate(group_data)
+            group.bind_state(self._state)
             groups.append(group)
 
         return groups
@@ -307,11 +312,30 @@ class Service(BaseModel):
             comment=comment,
             persistent=persistent,
         )
-        await self._state.http.add_service_comment(data)
+        _ = await self._state.http.add_service_comment(data)
         return data
 
     async def add_downtime(
-        self, start_time: datetime, end_time: datetime, comment: str, *, recurring: bool = False
-    ) -> None: ...
+        self,
+        start_time: datetime,  # pyright: ignore[reportUnusedParameter]
+        end_time: datetime,  # pyright: ignore[reportUnusedParameter]
+        comment: str,  # pyright: ignore[reportUnusedParameter]
+        *,
+        recurring: bool = False,  # pyright: ignore[reportUnusedParameter]
+    ) -> None:
+        """
+        Schedule a downtime for this service.
 
-    async def remove_acknowledgement(self) -> None: ...
+        Raises:
+            NotImplementedError: This method is not yet implemented.
+        """
+        raise NotImplementedError("Service downtime scheduling is not yet implemented")
+
+    async def remove_acknowledgement(self) -> None:
+        """
+        Remove the acknowledgement from this service.
+
+        Raises:
+            NotImplementedError: This method is not yet implemented.
+        """
+        raise NotImplementedError("Service acknowledgement removal is not yet implemented")

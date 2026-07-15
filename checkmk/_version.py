@@ -22,34 +22,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
-from enum import Enum, IntEnum
-
-from typing_extensions import override
-
-
-class HostStates(IntEnum):
-    UP = 0
-    DOWN = 1
-
-    @override
-    def __str__(self) -> str:
-        return self.name
-
-
-class ServiceStates(IntEnum):
-    OK = 0
-    WARNING = 1
-    WARN = 1
-    CRITICAL = 2
-
-    @override
-    def __str__(self) -> str:
-        return self.name
-
-
-class NotificationTypes(Enum):
-    PROBLEM = "PROBLEM"
-    RECOVERY = "RECOVERY"
-    ACKNOWLEDGEMENT = "ACKNOWLEDGEMENT"
-    FLAPPINGSTART = "FLAPPINGSTART"
-    FLAPPINGSTOP = "FLAPPINGSTOP"
+__version__ = "0.1.0"

@@ -24,8 +24,7 @@ SOFTWARE.
 
 import logging
 
-__version__ = "0.1.0"
-
+from ._version import __version__
 from .client import Client
 from .exceptions import (
     CheckmkException,

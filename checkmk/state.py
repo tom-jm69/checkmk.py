@@ -23,20 +23,27 @@ SOFTWARE.
 """
 
 
-from typing import TYPE_CHECKING, Any, Dict
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from .http import CheckmkHTTP
 
 
+class Identifiable(Protocol):
+    """Anything cacheable by `ConnectionState`."""
+
+    id: str
+
+
 class ConnectionState:
     """Central state manager that holds shared resources"""
-    def __init__(self, http: "CheckmkHTTP"):
-        self.http = http
-        self._cache: Dict[int, Any] = {}
-    
-    def add_to_cache(self, obj):
+
+    def __init__(self, http: "CheckmkHTTP") -> None:
+        self.http: "CheckmkHTTP" = http
+        self._cache: dict[str, Identifiable] = {}
+
+    def add_to_cache(self, obj: Identifiable) -> None:
         self._cache[obj.id] = obj
-    
-    def get_from_cache(self, obj_id: int):
+
+    def get_from_cache(self, obj_id: str) -> Identifiable | None:
         return self._cache.get(obj_id)

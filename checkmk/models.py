@@ -23,9 +23,11 @@ SOFTWARE.
 """
 
 from datetime import datetime
-from typing import Dict, Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl, field_validator
+
+Row = list[str | int | bool | None]
 
 
 class APIAuth(BaseModel):
@@ -43,22 +45,12 @@ class APIAuth(BaseModel):
         return f"Basic {encoded}"
 
 
-def normalize_comments(v):
-    if v is None:
-        return v
-
-    if isinstance(v, list) and v and isinstance(v[0], Comment):
-        return v
-
-    return [Comment.parse(row) for row in v]
-
-
 class Link(BaseModel):
-    domain_type: Optional[str] = Field(default=None, alias="domainType")
+    domain_type: str | None = Field(default=None, alias="domainType")
     href: HttpUrl
     method: str
     rel: str
-    title: Optional[str] = None
+    title: str | None = None
     type: str
 
 
@@ -122,18 +114,28 @@ class Comment(BaseModel):
     entry_time: datetime
 
     @classmethod
-    def parse(cls, row: list) -> "Comment":
+    def parse(cls, row: Row) -> "Comment":
         """
         Parse a single raw row:
         [id, author, comment, entry_type, unix_timestamp]
         """
         return cls(
-            id=row[0],
-            author=row[1],
-            comment=row[2],
-            entry_type=row[3],
-            entry_time=row[4],
+            id=row[0],  # pyright: ignore[reportArgumentType]
+            author=row[1],  # pyright: ignore[reportArgumentType]
+            comment=row[2],  # pyright: ignore[reportArgumentType]
+            entry_type=row[3],  # pyright: ignore[reportArgumentType]
+            entry_time=row[4],  # pyright: ignore[reportArgumentType]
         )
+
+
+def normalize_comments(v: list[Comment] | list[Row] | None) -> list[Comment] | None:
+    if v is None:
+        return v
+
+    if v and isinstance(v[0], Comment):
+        return v  # pyright: ignore[reportReturnType]
+
+    return [Comment.parse(row) for row in v]  # pyright: ignore[reportArgumentType]
 
 
 class CheckInfo(BaseModel):
@@ -151,9 +153,9 @@ class CheckInfo(BaseModel):
     has_been_checked: bool
     is_executing: bool
     last_check: datetime
-    max_check_attempts: Optional[int] = None
-    next_check: Optional[datetime] = None
-    retry_interval: Optional[float] = None
+    max_check_attempts: int | None = None
+    next_check: datetime | None = None
+    retry_interval: float | None = None
 
 
 class StateHistory(BaseModel):
@@ -161,30 +163,30 @@ class StateHistory(BaseModel):
 
     state: int
     last_state: int
-    last_state_change: Optional[datetime] = None
-    previous_hard_state: Optional[int] = None
+    last_state_change: datetime | None = None
+    previous_hard_state: int | None = None
 
 
 class FlappingInfo(BaseModel):
     """Flapping detection and monitoring."""
 
     is_flapping: bool
-    flap_detection_enabled: Optional[int] = None
-    flappiness: Optional[float] = None
-    low_flap_threshold: Optional[float] = None
-    percent_state_change: Optional[float] = None
+    flap_detection_enabled: int | None = None
+    flappiness: float | None = None
+    low_flap_threshold: float | None = None
+    percent_state_change: float | None = None
 
 
 class NotificationInfo(BaseModel):
     """Notification configuration and status."""
 
-    first_notification_delay: Optional[float] = None
-    next_notification: Optional[datetime] = None
-    no_more_notifications: Optional[int] = None
-    notification_interval: Optional[float] = None
-    notification_period: Optional[str] = None
-    notification_postponement_reason: Optional[str] = None
-    notifications_enabled: Optional[int] = None
+    first_notification_delay: float | None = None
+    next_notification: datetime | None = None
+    no_more_notifications: int | None = None
+    notification_interval: float | None = None
+    notification_period: str | None = None
+    notification_postponement_reason: str | None = None
+    notifications_enabled: int | None = None
 
 
 class Acknowledgement(BaseModel):
@@ -197,71 +199,71 @@ class Acknowledgement(BaseModel):
 class SystemInfo(BaseModel):
     """Advanced CheckMK system fields."""
 
-    modified_attributes: Optional[int] = None
-    modified_attributes_list: Optional[list[str]] = None
+    modified_attributes: int | None = None
+    modified_attributes_list: list[str] | None = None
 
 
 class NotesInfo(BaseModel):
     """Documentation and notes."""
 
-    notes: Optional[str] = None
-    notes_expanded: Optional[str] = None
-    notes_url: Optional[str] = None
-    notes_url_expanded: Optional[str] = None
+    notes: str | None = None
+    notes_expanded: str | None = None
+    notes_url: str | None = None
+    notes_url_expanded: str | None = None
 
 
 class CustomServiceData(BaseModel):
     """Custom variables, tags, and labels."""
 
-    custom_variable_names: Optional[list] = None
-    custom_variable_values: Optional[list] = None
-    custom_variables: Optional[Dict] = None
-    host_tags: Optional[Dict[str, str]] = None
-    labels: Optional[Dict[str, str]] = None
-    tags: Optional[Dict[str, str]] = None
+    custom_variable_names: list[str] | None = None
+    custom_variable_values: list[str] | None = None
+    custom_variables: dict[str, str] | None = None
+    host_tags: dict[str, str] | None = None
+    labels: dict[str, str] | None = None
+    tags: dict[str, str] | None = None
 
 
 class CustomHostData(BaseModel):
     """Custom variables, tags, and labels."""
 
-    custom_variable_names: Optional[list] = None
-    custom_variable_values: Optional[list] = None
-    custom_variables: Optional[Dict] = None
-    labels: Optional[Dict[str, str]] = None
-    tags: Optional[Dict[str, str]] = None
+    custom_variable_names: list[str] | None = None
+    custom_variable_values: list[str] | None = None
+    custom_variables: dict[str, str] | None = None
+    labels: dict[str, str] | None = None
+    tags: dict[str, str] | None = None
 
 
 class DowntimeCommentInfo(BaseModel):
     """Downtime and comment tracking."""
 
-    comments_with_extra_info: Optional[list[Comment]] = None
-    downtimes_with_extra_info: Optional[list] = None
-    pending_flex_downtime: Optional[int] = None
-    scheduled_downtime_depth: Optional[int] = None
+    comments_with_extra_info: list[Comment] | None = None
+    downtimes_with_extra_info: list[object] | None = None
+    pending_flex_downtime: int | None = None
+    scheduled_downtime_depth: int | None = None
 
     @field_validator("comments_with_extra_info", mode="before")
     @classmethod
-    def parse_comments(cls, v):
+    def parse_comments(cls, v: list[Comment] | list[Row] | None) -> list[Comment] | None:
         return normalize_comments(v)
 
 
 class PluginOutputInfo(BaseModel):
     """Plugin output and messages."""
 
-    plugin_output: Optional[str] = None
-    long_plugin_output: Optional[str] = None
+    plugin_output: str | None = None
+    long_plugin_output: str | None = None
 
 
 class PerformanceInfo(BaseModel):
     """Performance metrics and monitoring data."""
 
-    execution_time: Optional[float] = None
-    latency: Optional[float] = None
-    metrics: Optional[list] = None
-    perf_data: Optional[str] = None
-    performance_data: Optional[Dict[str, float]] = None
-    pnpgraph_present: Optional[int] = None
-    process_performance_data: Optional[int] = None
+    execution_time: float | None = None
+    latency: float | None = None
+    metrics: list[object] | None = None
+    perf_data: str | None = None
+    performance_data: dict[str, float] | None = None
+    pnpgraph_present: int | None = None
+    process_performance_data: int | None = None
 
 
 class CheckmkServiceColumns(BaseModel):
@@ -279,7 +281,7 @@ class CheckmkServiceColumns(BaseModel):
     groups: Group
 
     @classmethod
-    def get_columns(cls, additional_fields: Optional[list[str]] = None) -> list[str]:
+    def get_columns(cls, additional_fields: list[str] | None = None) -> list[str]:
         """
         Returns the list of columns to request from the Checkmk API.
 
@@ -292,16 +294,16 @@ class CheckmkServiceColumns(BaseModel):
         Returns:
             Sorted list of column names
         """
-        columns = set()
+        columns: set[str] = set()
 
         if additional_fields:
             # Core fields for service queries
             columns.update(additional_fields)
 
         # Extract fields from all nested models
-        for field_name, field_info in cls.__pydantic_fields__.items():
+        for field_info in cls.__pydantic_fields__.values():
             model_class = field_info.annotation
-            if hasattr(model_class, "__pydantic_fields__"):
+            if model_class is not None and issubclass(model_class, BaseModel):
                 columns.update(model_class.__pydantic_fields__.keys())
 
         return sorted(columns)
@@ -315,14 +317,14 @@ class HostMemberState(BaseModel):
     has_been_checked: bool
 
     @classmethod
-    def parse(cls, row: list) -> "HostMemberState":
+    def parse(cls, row: Row) -> "HostMemberState":
         """
         Parse a single raw row:
         [host_name, state, has_been_checked]
         """
         return cls(
-            host_name=row[0],
-            state=row[1],
+            host_name=row[0],  # pyright: ignore[reportArgumentType]
+            state=row[1],  # pyright: ignore[reportArgumentType]
             has_been_checked=bool(row[2]),
         )
 
@@ -334,12 +336,15 @@ class ServiceMember(BaseModel):
     service_description: str
 
     @classmethod
-    def parse(cls, row: list) -> "ServiceMember":
+    def parse(cls, row: Row) -> "ServiceMember":
         """
         Parse a single raw row:
         [host_name, service_description]
         """
-        return cls(host_name=row[0], service_description=row[1])
+        return cls(
+            host_name=row[0],  # pyright: ignore[reportArgumentType]
+            service_description=row[1],  # pyright: ignore[reportArgumentType]
+        )
 
 
 class ServiceMemberState(BaseModel):
@@ -351,41 +356,47 @@ class ServiceMemberState(BaseModel):
     has_been_checked: bool
 
     @classmethod
-    def parse(cls, row: list) -> "ServiceMemberState":
+    def parse(cls, row: Row) -> "ServiceMemberState":
         """
         Parse a single raw row:
         [host_name, service_description, state, has_been_checked]
         """
         return cls(
-            host_name=row[0],
-            service_description=row[1],
-            state=row[2],
+            host_name=row[0],  # pyright: ignore[reportArgumentType]
+            service_description=row[1],  # pyright: ignore[reportArgumentType]
+            state=row[2],  # pyright: ignore[reportArgumentType]
             has_been_checked=bool(row[3]),
         )
 
 
-def normalize_host_members_with_state(v):
+def normalize_host_members_with_state(
+    v: list[HostMemberState] | list[Row] | None,
+) -> list[HostMemberState] | None:
     if v is None:
         return v
-    if isinstance(v, list) and v and isinstance(v[0], HostMemberState):
-        return v
-    return [HostMemberState.parse(row) for row in v]
+    if v and isinstance(v[0], HostMemberState):
+        return v  # pyright: ignore[reportReturnType]
+    return [HostMemberState.parse(row) for row in v]  # pyright: ignore[reportArgumentType]
 
 
-def normalize_service_members(v):
+def normalize_service_members(
+    v: list[ServiceMember] | list[Row] | None,
+) -> list[ServiceMember] | None:
     if v is None:
         return v
-    if isinstance(v, list) and v and isinstance(v[0], ServiceMember):
-        return v
-    return [ServiceMember.parse(row) for row in v]
+    if v and isinstance(v[0], ServiceMember):
+        return v  # pyright: ignore[reportReturnType]
+    return [ServiceMember.parse(row) for row in v]  # pyright: ignore[reportArgumentType]
 
 
-def normalize_service_members_with_state(v):
+def normalize_service_members_with_state(
+    v: list[ServiceMemberState] | list[Row] | None,
+) -> list[ServiceMemberState] | None:
     if v is None:
         return v
-    if isinstance(v, list) and v and isinstance(v[0], ServiceMemberState):
-        return v
-    return [ServiceMemberState.parse(row) for row in v]
+    if v and isinstance(v[0], ServiceMemberState):
+        return v  # pyright: ignore[reportReturnType]
+    return [ServiceMemberState.parse(row) for row in v]  # pyright: ignore[reportArgumentType]
 
 
 class HostGroupExtensions(BaseModel):
@@ -393,37 +404,39 @@ class HostGroupExtensions(BaseModel):
 
     name: str
     alias: str
-    action_url: Optional[str] = None
-    notes: Optional[str] = None
-    notes_url: Optional[str] = None
-    members: Optional[list[str]] = None
-    members_with_state: Optional[list[HostMemberState]] = None
-    num_hosts: Optional[int] = None
-    num_hosts_down: Optional[int] = None
-    num_hosts_handled_problems: Optional[int] = None
-    num_hosts_pending: Optional[int] = None
-    num_hosts_unhandled_problems: Optional[int] = None
-    num_hosts_unreach: Optional[int] = None
-    num_hosts_up: Optional[int] = None
-    num_services: Optional[int] = None
-    num_services_crit: Optional[int] = None
-    num_services_handled_problems: Optional[int] = None
-    num_services_hard_crit: Optional[int] = None
-    num_services_hard_ok: Optional[int] = None
-    num_services_hard_unknown: Optional[int] = None
-    num_services_hard_warn: Optional[int] = None
-    num_services_ok: Optional[int] = None
-    num_services_pending: Optional[int] = None
-    num_services_unhandled_problems: Optional[int] = None
-    num_services_unknown: Optional[int] = None
-    num_services_warn: Optional[int] = None
-    worst_host_state: Optional[int] = None
-    worst_service_hard_state: Optional[int] = None
-    worst_service_state: Optional[int] = None
+    action_url: str | None = None
+    notes: str | None = None
+    notes_url: str | None = None
+    members: list[str] | None = None
+    members_with_state: list[HostMemberState] | None = None
+    num_hosts: int | None = None
+    num_hosts_down: int | None = None
+    num_hosts_handled_problems: int | None = None
+    num_hosts_pending: int | None = None
+    num_hosts_unhandled_problems: int | None = None
+    num_hosts_unreach: int | None = None
+    num_hosts_up: int | None = None
+    num_services: int | None = None
+    num_services_crit: int | None = None
+    num_services_handled_problems: int | None = None
+    num_services_hard_crit: int | None = None
+    num_services_hard_ok: int | None = None
+    num_services_hard_unknown: int | None = None
+    num_services_hard_warn: int | None = None
+    num_services_ok: int | None = None
+    num_services_pending: int | None = None
+    num_services_unhandled_problems: int | None = None
+    num_services_unknown: int | None = None
+    num_services_warn: int | None = None
+    worst_host_state: int | None = None
+    worst_service_hard_state: int | None = None
+    worst_service_state: int | None = None
 
     @field_validator("members_with_state", mode="before")
     @classmethod
-    def parse_members_with_state(cls, v):
+    def parse_members_with_state(
+        cls, v: list[HostMemberState] | list[Row] | None
+    ) -> list[HostMemberState] | None:
         return normalize_host_members_with_state(v)
 
 
@@ -432,33 +445,37 @@ class ServiceGroupExtensions(BaseModel):
 
     name: str
     alias: str
-    action_url: Optional[str] = None
-    notes: Optional[str] = None
-    notes_url: Optional[str] = None
-    members: Optional[list[ServiceMember]] = None
-    members_with_state: Optional[list[ServiceMemberState]] = None
-    num_services: Optional[int] = None
-    num_services_crit: Optional[int] = None
-    num_services_handled_problems: Optional[int] = None
-    num_services_hard_crit: Optional[int] = None
-    num_services_hard_ok: Optional[int] = None
-    num_services_hard_unknown: Optional[int] = None
-    num_services_hard_warn: Optional[int] = None
-    num_services_ok: Optional[int] = None
-    num_services_pending: Optional[int] = None
-    num_services_unhandled_problems: Optional[int] = None
-    num_services_unknown: Optional[int] = None
-    num_services_warn: Optional[int] = None
-    worst_service_state: Optional[int] = None
+    action_url: str | None = None
+    notes: str | None = None
+    notes_url: str | None = None
+    members: list[ServiceMember] | None = None
+    members_with_state: list[ServiceMemberState] | None = None
+    num_services: int | None = None
+    num_services_crit: int | None = None
+    num_services_handled_problems: int | None = None
+    num_services_hard_crit: int | None = None
+    num_services_hard_ok: int | None = None
+    num_services_hard_unknown: int | None = None
+    num_services_hard_warn: int | None = None
+    num_services_ok: int | None = None
+    num_services_pending: int | None = None
+    num_services_unhandled_problems: int | None = None
+    num_services_unknown: int | None = None
+    num_services_warn: int | None = None
+    worst_service_state: int | None = None
 
     @field_validator("members", mode="before")
     @classmethod
-    def parse_members(cls, v):
+    def parse_members(
+        cls, v: list[ServiceMember] | list[Row] | None
+    ) -> list[ServiceMember] | None:
         return normalize_service_members(v)
 
     @field_validator("members_with_state", mode="before")
     @classmethod
-    def parse_members_with_state(cls, v):
+    def parse_members_with_state(
+        cls, v: list[ServiceMemberState] | list[Row] | None
+    ) -> list[ServiceMemberState] | None:
         return normalize_service_members_with_state(v)
 
 
@@ -477,7 +494,7 @@ class CheckmkHostColumns(BaseModel):
     groups: Group
 
     @classmethod
-    def get_columns(cls, additional_fields: Optional[list[str]] = None) -> list[str]:
+    def get_columns(cls, additional_fields: list[str] | None = None) -> list[str]:
         """
         Returns the list of columns to request from the Checkmk API.
 
@@ -490,15 +507,15 @@ class CheckmkHostColumns(BaseModel):
         Returns:
             Sorted list of column names
         """
-        columns = set()
+        columns: set[str] = set()
 
         if additional_fields:
             # Core fields for service queries
             columns.update(additional_fields)
 
         # Extract fields from all nested models
-        for field_name, field_info in cls.__pydantic_fields__.items():
+        for field_info in cls.__pydantic_fields__.values():
             model_class = field_info.annotation
-            if hasattr(model_class, "__pydantic_fields__"):
+            if model_class is not None and issubclass(model_class, BaseModel):
                 columns.update(model_class.__pydantic_fields__.keys())
         return sorted(columns)
