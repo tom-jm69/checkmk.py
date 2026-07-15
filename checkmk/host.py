@@ -28,7 +28,12 @@ from typing import TYPE_CHECKING, ClassVar, cast
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from .enums import HostStates
-from .exceptions import HostNoProblemError, HostProblemAlreadyAcknowledgedError
+from .exceptions import (
+    HostGroupFetchError,
+    HostNoProblemError,
+    HostProblemAlreadyAcknowledgedError,
+    NotFound,
+)
 from .models import (
     Acknowledgement,
     CheckInfo,
@@ -316,6 +321,9 @@ class Host(BaseModel):
         """
         Fetch all host groups this host is a member of.
 
+        Built-in pseudo-groups (e.g. `check_mk`) that have no corresponding
+        `host_group_config` object are silently skipped.
+
         Returns:
             List[HostGroup]: List of HostGroup objects for this host's groups.
         """
@@ -324,7 +332,12 @@ class Host(BaseModel):
         groups: list[HostGroup] = []
 
         for group_name in self.groups or []:
-            group_data = await self._state.http.get_host_group(group_name)
+            try:
+                group_data = await self._state.http.get_host_group(group_name)
+            except HostGroupFetchError as e:
+                if isinstance(e.__cause__, NotFound):
+                    continue
+                raise
             group = HostGroup.model_validate(group_data)
             group.bind_state(self._state)
             groups.append(group)

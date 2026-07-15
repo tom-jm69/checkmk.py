@@ -23,9 +23,9 @@ SOFTWARE.
 """
 
 from datetime import datetime
-from typing import ClassVar
+from typing import ClassVar, cast
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from .enums import HostStates, ServiceStates
 from .models import HostGroupExtensions, HostMemberState, Link
@@ -44,6 +44,19 @@ class HostGroup(BaseModel):
     links: list[Link]
 
     _state: ConnectionState = PrivateAttr()
+
+    @model_validator(mode="before")
+    @classmethod
+    def backfill_extensions(cls, data: object) -> object:
+        """The collection-list endpoint returns an empty `extensions`; fall back to id/title."""
+        if isinstance(data, dict):
+            data = cast(dict[str, object], data)
+            extensions = data.get("extensions")
+            if isinstance(extensions, dict):
+                extensions = cast(dict[str, object], extensions)
+                _ = extensions.setdefault("name", data.get("id"))
+                _ = extensions.setdefault("alias", data.get("title"))
+        return data
 
     def bind_state(self, state: ConnectionState) -> None:
         """Attach the shared connection state. Called by `Client` after construction."""

@@ -28,7 +28,12 @@ from typing import TYPE_CHECKING, ClassVar, cast
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from .enums import ServiceStates
-from .exceptions import ServiceNoProblemError, ServiceProblemAlreadyAcknowledgedError
+from .exceptions import (
+    NotFound,
+    ServiceGroupFetchError,
+    ServiceNoProblemError,
+    ServiceProblemAlreadyAcknowledgedError,
+)
 from .models import (
     Acknowledgement,
     CheckInfo,
@@ -254,6 +259,9 @@ class Service(BaseModel):
         """
         Fetch all service groups this service is a member of.
 
+        Built-in pseudo-groups that have no corresponding `service_group_config`
+        object are silently skipped.
+
         Returns:
             List[ServiceGroup]: List of ServiceGroup objects for this service's groups.
         """
@@ -262,7 +270,12 @@ class Service(BaseModel):
         groups: list[ServiceGroup] = []
 
         for group_name in self.groups or []:
-            group_data = await self._state.http.get_service_group(group_name)
+            try:
+                group_data = await self._state.http.get_service_group(group_name)
+            except ServiceGroupFetchError as e:
+                if isinstance(e.__cause__, NotFound):
+                    continue
+                raise
             group = ServiceGroup.model_validate(group_data)
             group.bind_state(self._state)
             groups.append(group)
