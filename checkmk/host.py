@@ -63,6 +63,7 @@ class HostExtensions(BaseModel):
     """Host extensions with organized nested data models."""
 
     name: str
+    alias: str
     check_info: CheckInfo
     state_history: StateHistory
     flapping_info: FlappingInfo
@@ -84,6 +85,7 @@ class HostExtensions(BaseModel):
             data = cast(dict[str, object], data)
             result: dict[str, object] = {
                 "name": data.get("name"),
+                "alias": data.get("alias"),
                 "check_info": {
                     "check_command": data.get("check_command"),
                     "check_command_expanded": data.get("check_command_expanded"),
@@ -211,6 +213,10 @@ class Host(BaseModel):
     @property
     def name(self) -> str:
         return self._ext.name
+
+    @property
+    def alias(self) -> str:
+        return self._ext.alias
 
     @property
     def state(self) -> HostStates:

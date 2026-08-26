@@ -24,6 +24,15 @@ print(host.name)
 print(host.host_name)  # Same as name
 ```
 
+### alias
+**Type:** `str`
+
+The alias of the host.
+
+```python
+print(host.alias)
+```
+
 ### state
 **Type:** `HostStates` (Enum)
 

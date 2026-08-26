@@ -335,7 +335,7 @@ class CheckmkHTTP:
         self.client.auth = APIAuth(username=self.username, secret=self.secret)
 
     async def get_hosts(self) -> JSONDict:
-        columns_request_data = CheckmkHostColumns.get_columns(["name"])
+        columns_request_data = CheckmkHostColumns.get_columns(["name", "alias"])
         data = ColumnsRequest(columns=columns_request_data).model_dump_json()
 
         try:
